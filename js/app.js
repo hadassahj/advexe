@@ -399,28 +399,47 @@ function processExport(type) {
         }
 
         try {
-            const svgElement = document.querySelector("#visualization svg");
-            const styleElement = document.createElement("style");
-            styleElement.textContent = Array.from(document.styleSheets).map(sheet => { 
-                try { return Array.from(sheet.cssRules).map(r => r.cssText).join(''); } 
-                catch(e) { return ''; } 
-            }).join('');
-            
-            svgElement.insertBefore(styleElement, svgElement.firstChild);
-            const serializer = new XMLSerializer(); 
-            let source = serializer.serializeToString(svgElement);
-            svgElement.removeChild(styleElement); 
+            // METODA NOUĂ: Clonăm SVG-ul în memorie ca să nu stricăm interfața live
+            const svgNode = document.querySelector("#visualization svg");
+            const svgClone = svgNode.cloneNode(true);
 
-            // ============================================================
-            // CHIRURGIA SUPREMĂ: Ștergem complet tag-urile <image> din codul sursă al pozei!
-            // Browserul nici măcar nu va ști că au existat imagini acolo.
-            source = source.replace(/<image[^>]*>([\s\S]*?<\/image>)?/g, '');
-            // ============================================================
+            // Ștergem absolut toate imaginile din clonă folosind funcții DOM (100% sigur)
+            const images = svgClone.querySelectorAll("image");
+            images.forEach(img => img.parentNode.removeChild(img));
+
+            // Extragem CSS-ul, DAR IGNORĂM Fonturile Google (Asta cauza blocajul real!)
+            let safeCss = "";
+            for (let i = 0; i < document.styleSheets.length; i++) {
+                let sheet = document.styleSheets[i];
+                try {
+                    // Dacă e un link extern (ex: Google Fonts), îl sărim complet
+                    if (sheet.href && (sheet.href.includes('fonts.googleapis') || sheet.href.includes('gstatic'))) {
+                        continue; 
+                    }
+                    let rules = sheet.cssRules || sheet.rules;
+                    if (rules) {
+                        for (let j = 0; j < rules.length; j++) {
+                            safeCss += rules[j].cssText + " ";
+                        }
+                    }
+                } catch (e) {
+                    // Ignorăm erorile de securitate de la alte fișiere blocate
+                }
+            }
+            
+            // Forțăm un font standard de sistem pe poză, ca să nu caute pe net
+            safeCss += " text { font-family: sans-serif !important; }";
+
+            const styleElement = document.createElement("style");
+            styleElement.textContent = safeCss;
+            svgClone.insertBefore(styleElement, svgClone.firstChild);
+
+            const serializer = new XMLSerializer(); 
+            let source = serializer.serializeToString(svgClone);
 
             source = source.replace(/^<svg/, '<svg style="background-color:#fdfdfd;" ');
             
             const image = new Image(); 
-            image.crossOrigin = "anonymous"; // Ajută suplimentar la securitate
             image.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(source);
             
             image.onload = function() {
@@ -439,14 +458,16 @@ function processExport(type) {
                     
                     const dataUrl = canvas.toDataURL("image/png");
 
-                    // Restaurăm butonul la starea inițială
+                    // Restaurăm butonul
                     exportBtn.innerHTML = originalBtnText;
 
                     if (isMobile) {
+                        // Afișăm poza în fereastra creată de noi anterior pentru Long Press
                         document.getElementById('mobile-export-img').src = dataUrl;
                         document.getElementById('main-overlay').classList.add('active');
                         document.getElementById('mobile-export-modal').classList.add('active');
                     } else {
+                        // PC
                         const a = document.createElement("a"); 
                         a.download = type === 'full' ? "Cronologie_Panorama_HD.png" : "Cronologie_Detaliu_HD.png";
                         a.href = dataUrl;
@@ -455,7 +476,7 @@ function processExport(type) {
                         document.body.removeChild(a);
                     }
 
-                    // Resetăm vizualizarea după export
+                    // Resetare interfață după poză
                     if (type === 'full') {
                         centerY = oldCenterY; 
                         svg.attr("width", width).attr("height", height);
@@ -467,15 +488,15 @@ function processExport(type) {
                         updatePositions(currentTransform);
                     }
                 } catch (innerErr) {
-                    console.error("Eroare de memorie la Canvas:", innerErr);
-                    alert("Aplicația a funcționat, dar telefonul a blocat fotografia pentru că e prea mare. Încearcă 'Vizualizarea Curentă'.");
+                    console.error("Eroare RAM Canvas:", innerErr);
+                    alert("Aplicația a făcut poza, dar telefonul a refuzat afișarea (memorie insuficientă). Încearcă 'Vizualizarea Curentă'.");
                     exportBtn.innerHTML = originalBtnText;
                 }
             };
             
             image.onerror = function(err) {
-                console.error("Eroare de parcare SVG:", err);
-                alert("Procesarea imaginii a fost blocată de browser. Încearcă din nou.");
+                console.error("Eroare de securitate la desenare SVG:", err);
+                alert("Procesarea a fost blocată. Asigură-te că nu ai extensii care blochează scripturi.");
                 exportBtn.innerHTML = originalBtnText;
             };
 
@@ -483,7 +504,6 @@ function processExport(type) {
             console.error("Eroare generală:", error);
             exportBtn.innerHTML = originalBtnText;
             
-            // Resetăm în caz de eroare masivă
             if (type === 'full') {
                 centerY = oldCenterY; 
                 svg.attr("width", width).attr("height", height);
