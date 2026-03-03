@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advexe - Cronologie Istorică</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.3.4/axios.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <button id="menu-btn" onclick="openDrawer()">
+        <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+    </button>
+
+    <div class="bottom-actions">
+        <button class="action-btn btn-export" onclick="openExportModal()">
+            <svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+            SALVEAZĂ PNG HD
+        </button>
+        <button class="action-btn btn-today" onclick="goToPresent()">
+            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6l5.25 3.15-.92 1.51L11 12.3V7z"/></svg>
+            ASTĂZI
+        </button>
+    </div>
+
+    <div id="main-overlay" class="overlay" onclick="closeAll()"></div>
+    
+    <div id="drawer">
+        <div class="drawer-header">
+            <h3>Meniu & Filtre</h3>
+            <button class="close-btn" onclick="closeAll()">×</button>
+        </div>
+        <div class="drawer-content">
+            <input type="text" id="searchInput" class="search-box" placeholder="Caută..." oninput="applyFilters()">
+            <div class="filter-section-title">Tipuri principale</div>
+            <label class="filter-label"><input type="checkbox" id="check-people" checked onchange="applyFilters()"> Oameni</label>
+            <label class="filter-label"><input type="checkbox" id="check-events" checked onchange="applyFilters()"> Evenimente</label>
+            <div class="filter-section-title">Categorii</div>
+            <div id="dynamic-categories"></div>
+        </div>
+    </div>
+
+    <div id="detail-modal" class="custom-modal">
+        <div class="modal-img-container" id="modal-img-box">
+            <img id="modal-img" src="" alt="">
+        </div>
+        <div class="modal-body">
+            <div id="modal-badge"></div>
+            <h2 id="modal-title"></h2>
+            <p id="modal-date"></p>
+            <p id="modal-desc"></p>
+            <div class="filter-section-title" style="margin-top:0;">Context Global</div>
+            <div id="modal-links" class="links-container"></div>
+            <div id="custom-links-title" class="filter-section-title" style="display:none; margin-top:20px;">Surse Specifice</div>
+            <div id="custom-links" class="links-container"></div>
+        </div>
+    </div>
+
+    <div id="iframe-modal">
+        <div class="iframe-header">
+            <div style="display:flex; align-items:center;">
+                <h3 id="iframe-title">Harta Lumii</h3>
+                <a id="iframe-fallback-btn" class="iframe-fallback" href="#" target="_blank">Afișează alb/eroare? Deschide în pagină nouă ↗</a>
+            </div>
+            <button class="close-btn" onclick="closeIframeAndReturn()">×</button>
+        </div>
+        <iframe id="map-frame"></iframe>
+    </div>
+
+    <div id="export-modal" class="custom-modal">
+        <div class="modal-body">
+            <h2 style="margin-top: 0;">Exportă Graficul (HD)</h2>
+            <p style="color: #7f8c8d; font-size: 0.9rem; margin-bottom: 20px;">Alege ce porțiune din istorie vrei să printezi ca imagine.</p>
+            <button class="export-option-btn" onclick="processExport('current')">
+                <h4>Vizualizarea Curentă</h4>
+                <p>Salvează doar porțiunea vizibilă acum.</p>
+            </button>
+            <button class="export-option-btn" onclick="processExport('full')">
+                <h4>Toată Istoria (Panoramă)</h4>
+                <p>Generează o imagine imensă, arătând toate elementele pe o singură pânză desfășurată.</p>
+            </button>
+        </div>
+    </div>
+
+    <div id="visualization"></div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

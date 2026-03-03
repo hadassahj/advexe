@@ -1,0 +1,536 @@
+const SHEET_ID = '1njukwYjPgkTT_rAr5VCZycVRQrEMd3ijlbXeCF-E2e4';
+const API_KEY = 'AIzaSyDA9E0fYie3ATrAceDxETVmQvwFxrl_bRM';
+
+let originalItems = [];
+let currentItems = [];
+let genealogyLinks = [];
+let uniqueCategories = [];
+
+const pastelPalette = ['#FFB5E8', '#FF9CEE', '#FFCCF9', '#FCC2FF', '#F6A6FF', '#B28DFF', '#C5A3FF', '#D5AAFF', '#ECD4FF', '#FBE4FF', '#DCD3FF', '#A79AFF', '#B5B9FF', '#97A2FF', '#AFCBFF', '#AFF8DB', '#C4FAF8', '#85E3FF', '#ACE7FF', '#6EB5FF', '#BFFCC6', '#DBFFD6', '#F3FFE3', '#E7FFAC', '#FFFFD1', '#FFC9DE', '#FFABAB', '#FFBEBC', '#FFCBC1', '#FFF5BA'];
+const vibrantPalette = ['#2980b9', '#16a085', '#d35400', '#8e44ad', '#27ae60', '#f39c12', '#2c3e50', '#0097e6', '#44bd32', '#e1b12c', '#192a56', '#b33939', '#218c74'];
+
+function getColorForId(idString, isEvent = false) {
+    let hash = 0;
+    for (let i = 0; i < idString.length; i++) hash = idString.charCodeAt(i) + ((hash << 5) - hash);
+    return (isEvent ? vibrantPalette : pastelPalette)[Math.abs(hash) % (isEvent ? vibrantPalette.length : pastelPalette.length)];
+}
+
+const container = document.getElementById('visualization');
+let width = window.innerWidth;
+let height = window.innerHeight;
+let centerY = height / 2; 
+
+let panYTop = 0; 
+let panYBottom = 0;
+let lastTransformY = 0;
+let currentMouseX = null; 
+
+const svg = d3.select("#visualization").append("svg").attr("width", width).attr("height", height);
+
+const defs = svg.append("defs");
+defs.append("clipPath").attr("id", "avatar-clip").append("circle").attr("cx", 14).attr("cy", 12).attr("r", 9);
+defs.append("clipPath").attr("id", "clip-top").append("rect").attr("x", 0).attr("y", 0).attr("width", width).attr("height", centerY);
+defs.append("clipPath").attr("id", "clip-bottom").append("rect").attr("x", 0).attr("y", centerY - 10).attr("width", width).attr("height", height - centerY + 10);
+
+const zoom = d3.zoom().scaleExtent([0.1, 1000]).on("zoom", handleZoom);
+svg.call(zoom);
+
+const g = svg.append("g");
+
+const todayGroup = g.append("g").attr("class", "today-layer");
+const topViewport = g.append("g").attr("clip-path", "url(#clip-top)");
+const bottomViewport = g.append("g").attr("clip-path", "url(#clip-bottom)");
+const xAxisGroup = g.append("g").attr("class", "axis-line").attr("transform", `translate(0, ${centerY})`);
+
+const linksGroup = topViewport.append("g").attr("class", "links-layer");
+const peopleGroup = topViewport.append("g").attr("class", "people-layer");
+const eventsGroup = bottomViewport.append("g").attr("class", "events-layer");
+
+const todayLine = todayGroup.append("line").attr("class", "today-line").attr("y1", 0).attr("y2", height);
+const todayText = todayGroup.append("text").attr("class", "today-text").text("PREZENT").attr("y", 40);
+
+const crosshairGroup = g.append("g").attr("class", "crosshair-group").style("pointer-events", "none").style("display", "none");
+const crosshairLine = crosshairGroup.append("line").attr("class", "crosshair-line").attr("y1", 0).attr("y2", height);
+const crosshairBg = crosshairGroup.append("rect").attr("class", "crosshair-bg").attr("rx", 6).attr("ry", 6);
+const crosshairText = crosshairGroup.append("text").attr("class", "crosshair-text").attr("y", 26); 
+
+let xScale;
+
+svg.on("mousemove", function(event) {
+    currentMouseX = d3.pointer(event)[0];
+    updateCrosshair();
+});
+
+svg.on("mouseleave", function() {
+    currentMouseX = null;
+    crosshairGroup.style("display", "none");
+});
+
+window.addEventListener('resize', () => {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    centerY = height / 2;
+    
+    svg.attr("width", width).attr("height", height);
+    xAxisGroup.attr("transform", `translate(0, ${centerY})`);
+    todayLine.attr("y2", height);
+    crosshairLine.attr("y2", height); 
+    
+    d3.select("#clip-top rect").attr("width", width).attr("height", centerY);
+    d3.select("#clip-bottom rect").attr("width", width).attr("y", centerY - 10).attr("height", height - centerY + 10);
+
+    if (xScale) {
+        xScale.range([0, width]);
+        updatePositions(d3.zoomTransform(svg.node()));
+    }
+});
+
+async function loadData() {
+    const ranges = ['Oameni', 'Evenimente'];
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values:batchGet?ranges=${ranges.join('&ranges=')}&key=${API_KEY}`;
+    try {
+        const res = await axios.get(url);
+        let loaded = [];
+        if (res.data.valueRanges) {
+            loaded.push(...parseRows(res.data.valueRanges[0].values, 'people'));
+            loaded.push(...parseRows(res.data.valueRanges[1].values, 'events'));
+        }
+        originalItems = loaded;
+        uniqueCategories = [...new Set(originalItems.map(d => d.category))].filter(c => c !== "");
+        buildCategoryFilters();
+        applyFilters();
+    } catch (e) { console.error(e); }
+}
+
+function parseDate(s) {
+    if(!s || s.trim() === '') return null;
+    const p = s.split('.');
+    if (p.length === 3) return new Date(p[2], p[1] - 1, p[0]);
+    if (p.length === 1 && !isNaN(p[0])) return new Date(p[0], 0, 1);
+    return null;
+}
+
+function parseRows(rows, type) {
+    if (!rows || rows.length <= 1) return [];
+    return rows.slice(1).map((row, i) => {
+        const startStr = row[2];
+        const endStr = row[3];
+        let start = parseDate(startStr);
+        if (!start) return null;
+
+        let end = parseDate(endStr);
+        let displayDate = startStr;
+        let ageText = "";
+
+        if (type === 'people') {
+            if (!endStr || endStr.trim() === '') { end = new Date(); displayDate = `${startStr} — Prezent`; } 
+            else { displayDate = `${startStr} — ${endStr}`; }
+        } else {
+            if (endStr && endStr.trim() !== '') { displayDate = `${startStr} — ${endStr}`; } 
+            else { end = start; }
+        }
+
+        if (start && end && start.getTime() !== end.getTime()) {
+            let age = end.getFullYear() - start.getFullYear();
+            let m = end.getMonth() - start.getMonth();
+            if (m < 0 || (m === 0 && end.getDate() < start.getDate())) { age--; }
+            if (age > 0) { ageText = `${age} ani`; } else { ageText = `< 1 an`; }
+        }
+
+        let rawLinks = type === 'people' ? row[8] : row[7];
+        let customLinks = [];
+        if (rawLinks && rawLinks.trim() !== '') {
+            customLinks = rawLinks.split(',').map(l => l.trim()).filter(l => l.startsWith('http'));
+        }
+
+        return {
+            id: type + '_' + (row[0] || i), rawId: row[0] || String(i), type: type, 
+            title: row[1], start: start, end: end, ageText: ageText,
+            category: row[4] ? row[4].trim() : "Fără Categorie", 
+            description: row[5] || "Nicio descriere disponibilă.", 
+            parents: type === 'people' ? row[6] : null, 
+            image: type === 'people' ? row[7] : row[6], 
+            links: customLinks, displayDate: displayDate
+        };
+    }).filter(d => d !== null);
+}
+
+function buildCategoryFilters() {
+    const container = document.getElementById('dynamic-categories');
+    container.innerHTML = uniqueCategories.map(cat => 
+        `<label class="filter-label"><input type="checkbox" class="cat-filter" value="${cat}" checked onchange="applyFilters()"> ${cat}</label>`
+    ).join('');
+}
+
+function calculateLanes(data) {
+    const people = data.filter(d => d.type === 'people').sort((a, b) => a.start - b.start);
+    const eventRanges = data.filter(d => d.type === 'events' && d.start.getTime() !== d.end.getTime()).sort((a, b) => a.start - b.start);
+    const eventPoints = data.filter(d => d.type === 'events' && d.start.getTime() === d.end.getTime()).sort((a, b) => a.start - b.start);
+
+    let pLanes = [];
+    people.forEach(p => { let lane = 0; while (pLanes[lane] && pLanes[lane] > p.start) lane++; pLanes[lane] = p.end; p.lane = lane; });
+
+    let erLanes = [];
+    eventRanges.forEach(e => { let lane = 0; while (erLanes[lane] && erLanes[lane] > e.start) lane++; erLanes[lane] = e.end; e.lane = lane; });
+
+    let epLanes = [];
+    eventPoints.forEach(e => { let lane = 0; let padding = new Date(e.start.getTime() + (1000 * 60 * 60 * 24 * 60)); while (epLanes[lane] && epLanes[lane] > e.start) lane++; epLanes[lane] = padding; e.lane = lane; });
+}
+
+function generateLinks(data) {
+    genealogyLinks = [];
+    const people = data.filter(d => d.type === 'people');
+    people.forEach(child => {
+        if (child.parents && child.parents.trim() !== "") {
+            const pIds = child.parents.split(',');
+            pIds.forEach(pid => {
+                const parent = people.find(p => p.rawId === pid.trim());
+                if (parent) genealogyLinks.push({ source: parent, target: child });
+            });
+        }
+    });
+}
+
+function getBracePathDown(w, h) {
+    const q = Math.min(10, w / 4); const hw = w / 2; 
+    return `M 0,0 Q 0,${h} ${q},${h} L ${hw - q},${h} Q ${hw},${h} ${hw},${h + h} Q ${hw},${h} ${hw + q},${h} L ${w - q},${h} Q ${w},${h} ${w},0`;
+}
+
+function renderTimeline(data) {
+    if(data.length === 0) {
+        peopleGroup.selectAll("*").remove(); eventsGroup.selectAll("*").remove(); linksGroup.selectAll("*").remove();
+        return;
+    }
+
+    calculateLanes(data); generateLinks(data);
+
+    const minDate = d3.min(data, d => d.start);
+    const maxDate = new Date(); 
+    const padding = (maxDate - minDate) * 0.1;
+    
+    xScale = d3.scaleTime().domain([new Date(minDate.getTime() - padding), new Date(maxDate.getTime() + padding)]).range([0, width]);
+
+    const p_bars = peopleGroup.selectAll(".person-group").data(data.filter(d => d.type === 'people'), d => d.id);
+    p_bars.exit().remove();
+    const p_enter = p_bars.enter().append("g").attr("class", "person-group").on("click", (event, d) => openDetail(d));
+    
+    p_enter.append("rect").attr("class", "person-bar").attr("height", 24).attr("fill", d => getColorForId(d.rawId, false)); 
+    
+    p_enter.filter(d => d.image && d.image.includes('http'))
+           .append("image").attr("href", d => d.image).attr("xlink:href", d => d.image)
+           .attr("x", 5).attr("y", 3).attr("width", 18).attr("height", 18)
+           .attr("preserveAspectRatio", "xMidYMid slice").attr("clip-path", "url(#avatar-clip)")
+           .attr("crossorigin", "anonymous");
+
+    p_enter.append("text").attr("class", "person-label").attr("dy", 16)
+           .attr("dx", d => (d.image && d.image.includes('http')) ? 28 : 8)
+           .text(d => d.title + (d.ageText ? ` (${d.ageText})` : ''));
+
+    const links = linksGroup.selectAll(".genealogy-link").data(genealogyLinks);
+    links.exit().remove();
+    links.enter().append("path").attr("class", "genealogy-link");
+
+    const ep_nodes = eventsGroup.selectAll(".event-point-group").data(data.filter(d => d.type === 'events' && d.start.getTime() === d.end.getTime()), d => d.id);
+    ep_nodes.exit().remove();
+    const ep_enter = ep_nodes.enter().append("g").attr("class", "event-point-group").on("click", (event, d) => openDetail(d));
+    ep_enter.append("line").attr("class", "event-line");
+    ep_enter.append("circle").attr("class", "event-dot").attr("r", 5);
+    ep_enter.append("rect").attr("class", "event-label-bg");
+    ep_enter.append("text").attr("class", "event-label").attr("text-anchor", "middle").text(d => d.title);
+
+    const er_nodes = eventsGroup.selectAll(".event-range-group").data(data.filter(d => d.type === 'events' && d.start.getTime() !== d.end.getTime()), d => d.id);
+    er_nodes.exit().remove();
+    const er_enter = er_nodes.enter().append("g").attr("class", "event-range-group").on("click", (event, d) => openDetail(d));
+    er_enter.append("path").attr("class", "event-brace-path").attr("stroke", d => getColorForId(d.rawId, true));
+    
+    er_enter.append("text").attr("class", "event-brace-label").attr("text-anchor", "middle")
+            .attr("fill", d => getColorForId(d.rawId, true))
+            .text(d => d.title + (d.ageText ? ` (${d.ageText})` : ''));
+
+    panYTop = 0; panYBottom = 0; lastTransformY = d3.zoomIdentity.y;
+    svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity);
+    updatePositions(d3.zoomIdentity);
+}
+
+function handleZoom(event) { 
+    const dy = event.transform.y - lastTransformY;
+    lastTransformY = event.transform.y;
+
+    if (event.sourceEvent && (event.sourceEvent.type === 'mousemove' || event.sourceEvent.type === 'touchmove')) {
+        let clientY = event.sourceEvent.type === 'touchmove' ? event.sourceEvent.touches[0].clientY : event.sourceEvent.clientY;
+
+        if (clientY < centerY) {
+            panYTop += dy;
+            const maxTop = (d3.max(currentItems.filter(d => d.type === 'people'), d => d.lane) || 0) * 35;
+            if (panYTop < 0) panYTop = 0; 
+            if (panYTop > maxTop) panYTop = maxTop;
+        } else {
+            panYBottom -= dy; 
+            const maxBottom = (d3.max(currentItems.filter(d => d.type === 'events'), d => d.lane) || 0) * 50;
+            if (panYBottom < 0) panYBottom = 0; 
+            if (panYBottom > maxBottom) panYBottom = maxBottom;
+        }
+    }
+    updatePositions(event.transform); 
+    updateCrosshair(); 
+}
+
+function updatePositions(transform) {
+    if (!xScale) return;
+    
+    const newXScale = transform.rescaleX(xScale);
+    xAxisGroup.call(d3.axisBottom(newXScale).tickSizeOuter(0));
+    
+    const todayX = newXScale(new Date());
+    todayGroup.attr("transform", `translate(${todayX}, 0)`);
+    todayText.attr("x", 5);
+
+    peopleGroup.selectAll(".person-group").attr("transform", d => `translate(${newXScale(d.start)}, ${centerY - 28 - (d.lane * 35) + panYTop})`);
+    peopleGroup.selectAll(".person-bar").attr("width", d => Math.max(5, newXScale(d.end) - newXScale(d.start)));
+
+    linksGroup.selectAll(".genealogy-link").attr("d", d => {
+        const parentX = newXScale(d.source.start) + 15; 
+        const parentY = centerY - 28 - (d.source.lane * 35) + 24 + panYTop; 
+        const childX = newXScale(d.target.start);
+        const childY = centerY - 28 - (d.target.lane * 35) + 12 + panYTop; 
+        return `M ${parentX},${parentY} C ${parentX},${childY} ${childX - 20},${childY} ${childX},${childY}`;
+    });
+
+    eventsGroup.selectAll(".event-range-group").attr("transform", d => `translate(${newXScale(d.start)}, ${centerY + 18 + (d.lane * 50) - panYBottom})`);
+    eventsGroup.selectAll(".event-brace-path").attr("d", d => getBracePathDown(Math.max(10, newXScale(d.end) - newXScale(d.start)), 10));
+    eventsGroup.selectAll(".event-brace-label").attr("dx", d => Math.max(10, newXScale(d.end) - newXScale(d.start)) / 2).attr("dy", 35);
+
+    eventsGroup.selectAll(".event-point-group").attr("transform", d => `translate(${newXScale(d.start)}, 0)`);
+    eventsGroup.selectAll(".event-line").attr("y1", centerY).attr("y2", d => Math.max(centerY, centerY + 35 + (d.lane * 30) - panYBottom));
+    eventsGroup.selectAll(".event-dot").attr("cy", centerY);
+    eventsGroup.selectAll(".event-label").attr("y", d => centerY + 50 + (d.lane * 30) - panYBottom);
+    eventsGroup.selectAll(".event-label-bg")
+        .attr("x", function() { return -this.parentNode.querySelector('text').getBBox().width/2 - 5; })
+        .attr("y", d => centerY + 37 + (d.lane * 30) - panYBottom)
+        .attr("width", function() { return this.parentNode.querySelector('text').getBBox().width + 10; })
+        .attr("height", 18).attr("rx", 4);
+}
+
+function formatHoverDate(date) {
+    let year = date.getFullYear();
+    let currentYear = new Date().getFullYear();
+    let yearsAgo = currentYear - year;
+    let era = "d.Hr.";
+    let displayYear = year;
+    
+    if (year <= 0) {
+        era = "î.Hr.";
+        displayYear = Math.abs(year) + 1; 
+    }
+    return `Acum ${yearsAgo} ani • Anul ${displayYear} ${era}`;
+}
+
+function updateCrosshair() {
+    if (currentMouseX === null || !xScale) { crosshairGroup.style("display", "none"); return; }
+    crosshairGroup.style("display", null);
+    
+    const currentTransform = d3.zoomTransform(svg.node());
+    const currentXScale = currentTransform.rescaleX(xScale);
+    const hoveredDate = currentXScale.invert(currentMouseX);
+    
+    crosshairLine.attr("x1", currentMouseX).attr("x2", currentMouseX);
+    const textStr = formatHoverDate(hoveredDate);
+    crosshairText.text(textStr).attr("x", currentMouseX);
+    
+    const bbox = crosshairText.node().getBBox();
+    crosshairBg.attr("x", currentMouseX - bbox.width / 2 - 10).attr("y", 12).attr("width", bbox.width + 20).attr("height", 22);
+}
+
+function goToPresent() {
+    if (!xScale) return;
+    const targetScale = 3; 
+    const todayX = xScale(new Date());
+    const targetTranslateX = width / 2 - (todayX * targetScale);
+    panYTop = 0; panYBottom = 0; 
+    svg.transition().duration(1200).call(zoom.transform, d3.zoomIdentity.translate(targetTranslateX, lastTransformY).scale(targetScale));
+}
+
+function openExportModal() {
+    document.getElementById('drawer').classList.remove('open'); 
+    document.getElementById('detail-modal').classList.remove('active');
+    closeIframe(); 
+    
+    document.getElementById('main-overlay').classList.add('active');
+    document.getElementById('export-modal').classList.add('active');
+}
+
+function processExport(type) {
+    closeAll(); 
+    setTimeout(() => { 
+        let exportWidth = width; let exportHeight = height; let oldCenterY = centerY; let currentTransform = d3.zoomTransform(svg.node());
+        crosshairGroup.style("display", "none");
+
+        if (type === 'full') {
+            exportWidth = 5000;
+            const maxPLane = d3.max(currentItems.filter(d => d.type === 'people'), d => d.lane) || 0;
+            const maxELane = d3.max(currentItems.filter(d => d.type === 'events'), d => d.lane) || 0;
+            const neededTop = (maxPLane * 35) + 150; const neededBottom = (maxELane * 50) + 150;
+            
+            exportHeight = Math.max(height, neededTop + neededBottom); centerY = neededTop; 
+            svg.attr("width", exportWidth).attr("height", exportHeight);
+            xAxisGroup.attr("transform", `translate(0, ${centerY})`); todayLine.attr("y2", exportHeight);
+            
+            d3.select("#clip-top rect").attr("width", exportWidth).attr("height", centerY);
+            d3.select("#clip-bottom rect").attr("width", exportWidth).attr("y", centerY - 10).attr("height", exportHeight - centerY + 10);
+
+            panYTop = 0; panYBottom = 0; xScale.range([0, exportWidth]); updatePositions(d3.zoomIdentity); 
+        }
+
+        try {
+            const svgElement = document.querySelector("#visualization svg");
+            const styleElement = document.createElement("style");
+            styleElement.textContent = Array.from(document.styleSheets).map(sheet => { try { return Array.from(sheet.cssRules).map(r => r.cssText).join(''); } catch(e) { return ''; } }).join('');
+            
+            svgElement.insertBefore(styleElement, svgElement.firstChild);
+            const serializer = new XMLSerializer(); let source = serializer.serializeToString(svgElement);
+            svgElement.removeChild(styleElement); 
+
+            source = source.replace(/^<svg/, '<svg style="background-color:#fdfdfd;" ');
+            const image = new Image(); image.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(source);
+            
+            image.onload = function() {
+                const canvas = document.createElement("canvas"); const scaleFactor = 2; 
+                canvas.width = exportWidth * scaleFactor; canvas.height = exportHeight * scaleFactor;
+                const context = canvas.getContext("2d"); context.scale(scaleFactor, scaleFactor);
+                context.fillStyle = "#fdfdfd"; context.fillRect(0, 0, exportWidth, exportHeight); context.drawImage(image, 0, 0);
+                
+                const a = document.createElement("a"); a.download = type === 'full' ? "Cronologie_Panorama_HD.png" : "Cronologie_Detaliu_HD.png";
+                a.href = canvas.toDataURL("image/png"); a.click();
+                
+                if (type === 'full') {
+                    centerY = oldCenterY; svg.attr("width", width).attr("height", height);
+                    xAxisGroup.attr("transform", `translate(0, ${centerY})`); todayLine.attr("y2", height);
+                    d3.select("#clip-top rect").attr("width", width).attr("height", centerY);
+                    d3.select("#clip-bottom rect").attr("width", width).attr("y", centerY - 10).attr("height", height - centerY + 10);
+                    xScale.range([0, width]); updatePositions(currentTransform);
+                }
+            };
+        } catch (error) {
+            console.error(error);
+            if (type === 'full') {
+                centerY = oldCenterY; svg.attr("width", width).attr("height", height);
+                xAxisGroup.attr("transform", `translate(0, ${centerY})`); todayLine.attr("y2", height);
+                d3.select("#clip-top rect").attr("width", width).attr("height", centerY);
+                d3.select("#clip-bottom rect").attr("width", width).attr("y", centerY - 10).attr("height", height - centerY + 10);
+                xScale.range([0, width]); updatePositions(currentTransform);
+            }
+        }
+    }, 300); 
+}
+
+function applyFilters() {
+    const query = document.getElementById('searchInput').value.toLowerCase();
+    const showP = document.getElementById('check-people').checked;
+    const showE = document.getElementById('check-events').checked;
+    const checkedCats = Array.from(document.querySelectorAll('.cat-filter:checked')).map(cb => cb.value);
+
+    currentItems = originalItems.filter(item => {
+        const matchText = item.title.toLowerCase().includes(query) || item.description.toLowerCase().includes(query);
+        const matchMainType = (item.type === 'people' && showP) || (item.type === 'events' && showE);
+        const matchCat = item.category === "Fără Categorie" || checkedCats.includes(item.category);
+        return matchText && matchMainType && matchCat;
+    });
+    
+    panYTop = 0; panYBottom = 0; 
+    renderTimeline(currentItems);
+}
+
+function openMapIframe(url, title) {
+    document.getElementById('iframe-title').innerText = title;
+    document.getElementById('iframe-fallback-btn').href = url; 
+    document.getElementById('map-frame').src = url;
+    
+    document.getElementById('detail-modal').classList.remove('active'); 
+    document.getElementById('iframe-modal').classList.add('active'); 
+}
+
+function closeIframeAndReturn() {
+    document.getElementById('iframe-modal').classList.remove('active');
+    setTimeout(() => { document.getElementById('map-frame').src = ''; }, 300);
+    document.getElementById('detail-modal').classList.add('active'); 
+}
+
+function closeIframe() {
+    document.getElementById('iframe-modal').classList.remove('active');
+    setTimeout(() => { document.getElementById('map-frame').src = ''; }, 300);
+}
+
+function openDrawer() { document.getElementById('main-overlay').classList.add('active'); document.getElementById('drawer').classList.add('open'); }
+
+function closeAll() { 
+    document.getElementById('main-overlay').classList.remove('active'); 
+    document.getElementById('drawer').classList.remove('open'); 
+    document.getElementById('detail-modal').classList.remove('active'); 
+    document.getElementById('export-modal').classList.remove('active'); 
+    closeIframe(); 
+}
+
+function openDetail(item) {
+    const badge = document.getElementById('modal-badge');
+    badge.innerText = item.category !== "Fără Categorie" ? item.category : (item.type === 'people' ? 'Persoană' : 'Eveniment');
+    badge.style.backgroundColor = item.type === 'people' ? '#e8f8f5' : '#ebf5fb';
+    badge.style.color = item.type === 'people' ? '#27ae60' : '#2980b9';
+
+    document.getElementById('modal-title').innerText = item.title;
+    document.getElementById('modal-desc').innerText = item.description; 
+    
+    let ageStr = item.ageText ? ` • ${item.ageText}` : '';
+    document.getElementById('modal-date').innerText = item.displayDate + ageStr;
+    
+    const imgBox = document.getElementById('modal-img-box');
+    if(item.image && item.image.includes('http')) {
+        document.getElementById('modal-img').src = item.image;
+        imgBox.style.display = 'block';
+    } else { imgBox.style.display = 'none'; }
+    
+    const linksContainer = document.getElementById('modal-links');
+    const customLinksContainer = document.getElementById('custom-links');
+    linksContainer.innerHTML = ''; 
+    customLinksContainer.innerHTML = '';
+
+    if (item.start) {
+        const an = item.start.getFullYear();
+        let displayYear = an > 0 ? an : Math.abs(an) + 1 + ' î.Hr.';
+
+        const urlRR = `https://runningreality.org/#01/01/${an}&46.00,15.00&zoom=5`;
+        const btnRR = document.createElement('a');
+        btnRR.href = "javascript:void(0)"; 
+        btnRR.className = "external-btn rr-btn";
+        btnRR.innerHTML = `🌍 Harta Politică ${displayYear} (Running Reality)`;
+        btnRR.onclick = () => openMapIframe(urlRR, `Running Reality - Lumea în anul ${displayYear}`);
+        linksContainer.appendChild(btnRR);
+
+        const urlOM = `https://www.oldmapsonline.org/en/history/regions#position=5/46.00/15.00&year=${an}`;
+        const btnOM = document.createElement('a');
+        btnOM.href = "javascript:void(0)";
+        btnOM.className = "external-btn om-btn";
+        btnOM.innerHTML = `📜 Arhiva de Hărți ${displayYear} (Old Maps Online)`;
+        btnOM.onclick = () => openMapIframe(urlOM, `Old Maps Online - Lumea în anul ${displayYear}`);
+        linksContainer.appendChild(btnOM);
+    }
+
+    if (item.links && item.links.length > 0) {
+        document.getElementById('custom-links-title').style.display = 'block';
+        item.links.forEach((link, index) => {
+            const btnCustom = document.createElement('a');
+            btnCustom.href = link;
+            btnCustom.target = "_blank";
+            btnCustom.className = "external-btn";
+            btnCustom.innerHTML = `🔗 Accesează Sursa ${index + 1}`;
+            customLinksContainer.appendChild(btnCustom);
+        });
+    } else {
+        document.getElementById('custom-links-title').style.display = 'none';
+    }
+
+    document.getElementById('drawer').classList.remove('open');
+    document.getElementById('main-overlay').classList.add('active');
+    setTimeout(() => { document.getElementById('detail-modal').classList.add('active'); }, 50);
+}
+
+window.onload = loadData;
