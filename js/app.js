@@ -361,24 +361,44 @@ function openExportModal() {
 
 function processExport(type) {
     closeAll(); 
+    
+    // Feedback vizual ca să știi că lucrează
+    const exportBtn = document.querySelector('.btn-export');
+    const originalBtnText = exportBtn.innerHTML;
+    exportBtn.innerHTML = `⏳ Se procesează...`;
+    
     setTimeout(() => { 
-        let exportWidth = width; let exportHeight = height; let oldCenterY = centerY; let currentTransform = d3.zoomTransform(svg.node());
+        let exportWidth = width; 
+        let exportHeight = height; 
+        let oldCenterY = centerY; 
+        let currentTransform = d3.zoomTransform(svg.node());
         crosshairGroup.style("display", "none");
 
+        // Detectăm dacă suntem pe telefon
+        const isMobile = window.innerWidth <= 768;
+
         if (type === 'full') {
-            exportWidth = 5000;
+            // Pe mobil reducem lățimea maximă ca să nu crape memoria RAM
+            exportWidth = isMobile ? 3000 : 5000; 
+            
             const maxPLane = d3.max(currentItems.filter(d => d.type === 'people'), d => d.lane) || 0;
             const maxELane = d3.max(currentItems.filter(d => d.type === 'events'), d => d.lane) || 0;
-            const neededTop = (maxPLane * 35) + 150; const neededBottom = (maxELane * 50) + 150;
+            const neededTop = (maxPLane * 35) + 150; 
+            const neededBottom = (maxELane * 50) + 150;
             
-            exportHeight = Math.max(height, neededTop + neededBottom); centerY = neededTop; 
+            exportHeight = Math.max(height, neededTop + neededBottom); 
+            centerY = neededTop; 
+            
             svg.attr("width", exportWidth).attr("height", exportHeight);
-            xAxisGroup.attr("transform", `translate(0, ${centerY})`); todayLine.attr("y2", exportHeight);
+            xAxisGroup.attr("transform", `translate(0, ${centerY})`); 
+            todayLine.attr("y2", exportHeight);
             
             d3.select("#clip-top rect").attr("width", exportWidth).attr("height", centerY);
             d3.select("#clip-bottom rect").attr("width", exportWidth).attr("y", centerY - 10).attr("height", exportHeight - centerY + 10);
 
-            panYTop = 0; panYBottom = 0; xScale.range([0, exportWidth]); updatePositions(d3.zoomIdentity); 
+            panYTop = 0; panYBottom = 0; 
+            xScale.range([0, exportWidth]); 
+            updatePositions(d3.zoomIdentity); 
         }
 
         try {
@@ -387,37 +407,68 @@ function processExport(type) {
             styleElement.textContent = Array.from(document.styleSheets).map(sheet => { try { return Array.from(sheet.cssRules).map(r => r.cssText).join(''); } catch(e) { return ''; } }).join('');
             
             svgElement.insertBefore(styleElement, svgElement.firstChild);
-            const serializer = new XMLSerializer(); let source = serializer.serializeToString(svgElement);
+            const serializer = new XMLSerializer(); 
+            let source = serializer.serializeToString(svgElement);
             svgElement.removeChild(styleElement); 
 
             source = source.replace(/^<svg/, '<svg style="background-color:#fdfdfd;" ');
-            const image = new Image(); image.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(source);
+            const image = new Image(); 
+            image.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(source);
             
             image.onload = function() {
-                const canvas = document.createElement("canvas"); const scaleFactor = 2; 
-                canvas.width = exportWidth * scaleFactor; canvas.height = exportHeight * scaleFactor;
-                const context = canvas.getContext("2d"); context.scale(scaleFactor, scaleFactor);
-                context.fillStyle = "#fdfdfd"; context.fillRect(0, 0, exportWidth, exportHeight); context.drawImage(image, 0, 0);
+                const canvas = document.createElement("canvas"); 
+                // Scalare mai mică pe mobil pentru a preveni crash-urile
+                const scaleFactor = isMobile ? 1 : 2; 
                 
-                const a = document.createElement("a"); a.download = type === 'full' ? "Cronologie_Panorama_HD.png" : "Cronologie_Detaliu_HD.png";
-                a.href = canvas.toDataURL("image/png"); a.click();
+                canvas.width = exportWidth * scaleFactor; 
+                canvas.height = exportHeight * scaleFactor;
+                const context = canvas.getContext("2d"); 
+                context.scale(scaleFactor, scaleFactor);
                 
-                if (type === 'full') {
-                    centerY = oldCenterY; svg.attr("width", width).attr("height", height);
-                    xAxisGroup.attr("transform", `translate(0, ${centerY})`); todayLine.attr("y2", height);
-                    d3.select("#clip-top rect").attr("width", width).attr("height", centerY);
-                    d3.select("#clip-bottom rect").attr("width", width).attr("y", centerY - 10).attr("height", height - centerY + 10);
-                    xScale.range([0, width]); updatePositions(currentTransform);
-                }
+                context.fillStyle = "#fdfdfd"; 
+                context.fillRect(0, 0, exportWidth, exportHeight); 
+                context.drawImage(image, 0, 0);
+                
+                // SISTEM NOU: Blob în loc de DataURL (Perfect pentru Mobil)
+                canvas.toBlob(function(blob) {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a"); 
+                    a.download = type === 'full' ? "Cronologie_Panorama_HD.png" : "Cronologie_Detaliu_HD.png";
+                    a.href = url;
+                    
+                    // Hack pentru Apple iOS / Safari: Trebuie inserat în pagină înainte de click
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url); // Curățăm memoria
+                    
+                    // Restaurăm totul la normal
+                    exportBtn.innerHTML = originalBtnText;
+                    
+                    if (type === 'full') {
+                        centerY = oldCenterY; 
+                        svg.attr("width", width).attr("height", height);
+                        xAxisGroup.attr("transform", `translate(0, ${centerY})`); 
+                        todayLine.attr("y2", height);
+                        d3.select("#clip-top rect").attr("width", width).attr("height", centerY);
+                        d3.select("#clip-bottom rect").attr("width", width).attr("y", centerY - 10).attr("height", height - centerY + 10);
+                        xScale.range([0, width]); 
+                        updatePositions(currentTransform);
+                    }
+                }, "image/png");
             };
         } catch (error) {
             console.error(error);
+            exportBtn.innerHTML = originalBtnText;
             if (type === 'full') {
-                centerY = oldCenterY; svg.attr("width", width).attr("height", height);
-                xAxisGroup.attr("transform", `translate(0, ${centerY})`); todayLine.attr("y2", height);
+                centerY = oldCenterY; 
+                svg.attr("width", width).attr("height", height);
+                xAxisGroup.attr("transform", `translate(0, ${centerY})`); 
+                todayLine.attr("y2", height);
                 d3.select("#clip-top rect").attr("width", width).attr("height", centerY);
                 d3.select("#clip-bottom rect").attr("width", width).attr("y", centerY - 10).attr("height", height - centerY + 10);
-                xScale.range([0, width]); updatePositions(currentTransform);
+                xScale.range([0, width]); 
+                updatePositions(currentTransform);
             }
         }
     }, 300); 
