@@ -376,7 +376,6 @@ function processExport(type) {
         const isMobile = window.innerWidth <= 768;
 
         if (type === 'full') {
-            // Lățime ultra-sigură pentru memoria RAM de pe telefon
             exportWidth = isMobile ? 2500 : 5000; 
             const maxPLane = d3.max(currentItems.filter(d => d.type === 'people'), d => d.lane) || 0;
             const maxELane = d3.max(currentItems.filter(d => d.type === 'events'), d => d.lane) || 0;
@@ -399,37 +398,35 @@ function processExport(type) {
         }
 
         try {
-            // METODA NOUĂ: Clonăm SVG-ul în memorie ca să nu stricăm interfața live
             const svgNode = document.querySelector("#visualization svg");
             const svgClone = svgNode.cloneNode(true);
 
-            // Ștergem absolut toate imaginile din clonă folosind funcții DOM (100% sigur)
+            // 1. REPARARE NAMESPACE-URI PENTRU MOBIL
+            svgClone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+            svgClone.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
+            svgClone.style.backgroundColor = "#fdfdfd";
+
+            // 2. ȘTERGEM TOATE IMAGINILE
             const images = svgClone.querySelectorAll("image");
             images.forEach(img => img.parentNode.removeChild(img));
 
-            // Extragem CSS-ul, DAR IGNORĂM Fonturile Google (Asta cauza blocajul real!)
-            let safeCss = "";
-            for (let i = 0; i < document.styleSheets.length; i++) {
-                let sheet = document.styleSheets[i];
-                try {
-                    // Dacă e un link extern (ex: Google Fonts), îl sărim complet
-                    if (sheet.href && (sheet.href.includes('fonts.googleapis') || sheet.href.includes('gstatic'))) {
-                        continue; 
-                    }
-                    let rules = sheet.cssRules || sheet.rules;
-                    if (rules) {
-                        for (let j = 0; j < rules.length; j++) {
-                            safeCss += rules[j].cssText + " ";
-                        }
-                    }
-                } catch (e) {
-                    // Ignorăm erorile de securitate de la alte fișiere blocate
-                }
-            }
-            
-            // Forțăm un font standard de sistem pe poză, ca să nu caute pe net
-            safeCss += " text { font-family: sans-serif !important; }";
-
+            // 3. INJECTĂM CSS-UL MANUAL (CURAT 100%, FĂRĂ LINKURI EXTERNE)
+            const safeCss = `
+                .axis-line path { stroke: #cbd5e1; stroke-width: 2px; }
+                .axis-line line { stroke: #cbd5e1; stroke-opacity: 0.5; }
+                .axis-line text { fill: #94a3b8; font-family: sans-serif; font-size: 12px; font-weight: 500; }
+                .person-bar { stroke: rgba(0,0,0,0.1); stroke-width: 1px; }
+                .person-label { fill: #111; font-size: 12px; font-family: sans-serif; font-weight: 600; }
+                .genealogy-link { fill: none; stroke: #94a3b8; stroke-width: 2px; stroke-dasharray: 4,4; opacity: 0.5; }
+                .event-line { stroke: #c0392b; stroke-width: 1.5px; opacity: 0.7; }
+                .event-dot { fill: white; stroke: #c0392b; stroke-width: 2.5px; }
+                .event-label { fill: #2c3e50; font-size: 12px; font-family: sans-serif; font-weight: 600; }
+                .event-label-bg { fill: white; opacity: 0.9; }
+                .event-brace-path { fill: none; stroke-width: 2.5px; stroke-linecap: round; stroke-linejoin: round; opacity: 0.85; }
+                .event-brace-label { font-size: 12px; font-family: sans-serif; font-weight: 600; text-shadow: 0 1px 2px rgba(255,255,255,0.8); }
+                .today-line { stroke: #e74c3c; stroke-width: 1.5px; stroke-dasharray: 5,5; opacity: 0.7; }
+                .today-text { fill: #e74c3c; font-size: 11px; font-weight: bold; font-family: sans-serif; letter-spacing: 1px; }
+            `;
             const styleElement = document.createElement("style");
             styleElement.textContent = safeCss;
             svgClone.insertBefore(styleElement, svgClone.firstChild);
@@ -437,10 +434,14 @@ function processExport(type) {
             const serializer = new XMLSerializer(); 
             let source = serializer.serializeToString(svgClone);
 
-            source = source.replace(/^<svg/, '<svg style="background-color:#fdfdfd;" ');
-            
+            // 4. FUNCȚIE SIGURĂ PENTRU DIACRITICE (B64)
+            function utf8_to_b64(str) {
+                return window.btoa(unescape(encodeURIComponent(str)));
+            }
+
             const image = new Image(); 
-            image.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(source);
+            image.crossOrigin = "anonymous";
+            image.src = "data:image/svg+xml;base64," + utf8_to_b64(source); // Base64 e preferat de iOS/Android
             
             image.onload = function() {
                 try {
@@ -458,16 +459,13 @@ function processExport(type) {
                     
                     const dataUrl = canvas.toDataURL("image/png");
 
-                    // Restaurăm butonul
                     exportBtn.innerHTML = originalBtnText;
 
                     if (isMobile) {
-                        // Afișăm poza în fereastra creată de noi anterior pentru Long Press
                         document.getElementById('mobile-export-img').src = dataUrl;
                         document.getElementById('main-overlay').classList.add('active');
                         document.getElementById('mobile-export-modal').classList.add('active');
                     } else {
-                        // PC
                         const a = document.createElement("a"); 
                         a.download = type === 'full' ? "Cronologie_Panorama_HD.png" : "Cronologie_Detaliu_HD.png";
                         a.href = dataUrl;
@@ -476,7 +474,6 @@ function processExport(type) {
                         document.body.removeChild(a);
                     }
 
-                    // Resetare interfață după poză
                     if (type === 'full') {
                         centerY = oldCenterY; 
                         svg.attr("width", width).attr("height", height);
@@ -489,14 +486,14 @@ function processExport(type) {
                     }
                 } catch (innerErr) {
                     console.error("Eroare RAM Canvas:", innerErr);
-                    alert("Aplicația a făcut poza, dar telefonul a refuzat afișarea (memorie insuficientă). Încearcă 'Vizualizarea Curentă'.");
+                    alert("Aplicația a funcționat, dar telefonul a rămas fără memorie pentru o poză atât de mare.");
                     exportBtn.innerHTML = originalBtnText;
                 }
             };
             
             image.onerror = function(err) {
                 console.error("Eroare de securitate la desenare SVG:", err);
-                alert("Procesarea a fost blocată. Asigură-te că nu ai extensii care blochează scripturi.");
+                alert("Nu am putut fenta securitatea browserului tău pe mobil. Încearcă de pe PC.");
                 exportBtn.innerHTML = originalBtnText;
             };
 
@@ -517,7 +514,6 @@ function processExport(type) {
         }
     }, 300); 
 }
-
 function applyFilters() {
     const query = document.getElementById('searchInput').value.toLowerCase();
     const showP = document.getElementById('check-people').checked;
