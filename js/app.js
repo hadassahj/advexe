@@ -362,7 +362,6 @@ function openExportModal() {
 function processExport(type) {
     closeAll(); 
     
-    // Feedback vizual ca să știi că lucrează
     const exportBtn = document.querySelector('.btn-export');
     const originalBtnText = exportBtn.innerHTML;
     exportBtn.innerHTML = `⏳ Se procesează...`;
@@ -374,13 +373,10 @@ function processExport(type) {
         let currentTransform = d3.zoomTransform(svg.node());
         crosshairGroup.style("display", "none");
 
-        // Detectăm dacă suntem pe telefon
         const isMobile = window.innerWidth <= 768;
 
         if (type === 'full') {
-            // Pe mobil reducem lățimea maximă ca să nu crape memoria RAM
             exportWidth = isMobile ? 3000 : 5000; 
-            
             const maxPLane = d3.max(currentItems.filter(d => d.type === 'people'), d => d.lane) || 0;
             const maxELane = d3.max(currentItems.filter(d => d.type === 'events'), d => d.lane) || 0;
             const neededTop = (maxPLane * 35) + 150; 
@@ -402,6 +398,17 @@ function processExport(type) {
         }
 
         try {
+            // HACK IOS/SAFARI: Ascundem temporar avatarele ca să nu primim "CORS Tainted Canvas Error"
+            const allImages = svg.selectAll("image");
+            const hiddenImages = [];
+            allImages.each(function() {
+                const img = d3.select(this);
+                if (img.style("display") !== "none") {
+                    hiddenImages.push(img);
+                    img.style("display", "none");
+                }
+            });
+
             const svgElement = document.querySelector("#visualization svg");
             const styleElement = document.createElement("style");
             styleElement.textContent = Array.from(document.styleSheets).map(sheet => { try { return Array.from(sheet.cssRules).map(r => r.cssText).join(''); } catch(e) { return ''; } }).join('');
@@ -411,40 +418,48 @@ function processExport(type) {
             let source = serializer.serializeToString(svgElement);
             svgElement.removeChild(styleElement); 
 
+            // Refacem vizibilitatea avatarelor pe graficul live
+            hiddenImages.forEach(img => img.style("display", null));
+
             source = source.replace(/^<svg/, '<svg style="background-color:#fdfdfd;" ');
             const image = new Image(); 
             image.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(source);
             
             image.onload = function() {
-                const canvas = document.createElement("canvas"); 
-                // Scalare mai mică pe mobil pentru a preveni crash-urile
-                const scaleFactor = isMobile ? 1 : 2; 
-                
-                canvas.width = exportWidth * scaleFactor; 
-                canvas.height = exportHeight * scaleFactor;
-                const context = canvas.getContext("2d"); 
-                context.scale(scaleFactor, scaleFactor);
-                
-                context.fillStyle = "#fdfdfd"; 
-                context.fillRect(0, 0, exportWidth, exportHeight); 
-                context.drawImage(image, 0, 0);
-                
-                // SISTEM NOU: Blob în loc de DataURL (Perfect pentru Mobil)
-                canvas.toBlob(function(blob) {
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a"); 
-                    a.download = type === 'full' ? "Cronologie_Panorama_HD.png" : "Cronologie_Detaliu_HD.png";
-                    a.href = url;
+                try {
+                    const canvas = document.createElement("canvas"); 
+                    const scaleFactor = isMobile ? 1 : 2; 
                     
-                    // Hack pentru Apple iOS / Safari: Trebuie inserat în pagină înainte de click
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url); // Curățăm memoria
+                    canvas.width = exportWidth * scaleFactor; 
+                    canvas.height = exportHeight * scaleFactor;
+                    const context = canvas.getContext("2d"); 
+                    context.scale(scaleFactor, scaleFactor);
                     
-                    // Restaurăm totul la normal
+                    context.fillStyle = "#fdfdfd"; 
+                    context.fillRect(0, 0, exportWidth, exportHeight); 
+                    context.drawImage(image, 0, 0);
+                    
+                    const dataUrl = canvas.toDataURL("image/png");
+
+                    // Restaurăm butonul
                     exportBtn.innerHTML = originalBtnText;
-                    
+
+                    if (isMobile) {
+                        // Pe telefon afișăm poza ca să poată da "Long Press"
+                        document.getElementById('mobile-export-img').src = dataUrl;
+                        document.getElementById('main-overlay').classList.add('active');
+                        document.getElementById('mobile-export-modal').classList.add('active');
+                    } else {
+                        // Pe PC descărcăm automat
+                        const a = document.createElement("a"); 
+                        a.download = type === 'full' ? "Cronologie_Panorama_HD.png" : "Cronologie_Detaliu_HD.png";
+                        a.href = dataUrl;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                    }
+
+                    // Resetăm graficul după export full
                     if (type === 'full') {
                         centerY = oldCenterY; 
                         svg.attr("width", width).attr("height", height);
@@ -455,8 +470,18 @@ function processExport(type) {
                         xScale.range([0, width]); 
                         updatePositions(currentTransform);
                     }
-                }, "image/png");
+                } catch (innerErr) {
+                    console.error("Eroare de securitate la desenare:", innerErr);
+                    alert("A apărut o problemă tehnică (restricție de memorie sau imagini).");
+                    exportBtn.innerHTML = originalBtnText;
+                }
             };
+            
+            image.onerror = function() {
+                alert("Procesarea imaginii a fost blocată de browser.");
+                exportBtn.innerHTML = originalBtnText;
+            };
+
         } catch (error) {
             console.error(error);
             exportBtn.innerHTML = originalBtnText;
