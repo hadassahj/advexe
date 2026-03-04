@@ -117,3 +117,21 @@ body, html { margin: 0; padding: 0; height: 100%; font-family: 'Inter', sans-ser
 .crosshair-line { stroke: var(--tracker-color); stroke-width: 1.5px; stroke-dasharray: 4,4; opacity: 0.7; }
 .crosshair-bg { fill: #2c3e50; opacity: 0.9; }
 .crosshair-text { fill: white; font-size: 12px; font-family: 'Inter'; font-weight: 600; text-anchor: middle; }
+
+/* Tooltip Vârstă Dinamică */
+#hover-tooltip {
+    position: absolute;
+    background: #2c3e50;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: 'Inter', sans-serif;
+    pointer-events: none; /* Ca să nu blocheze click-urile */
+    opacity: 0; /* Invizibil la început */
+    transition: opacity 0.15s;
+    z-index: 2000;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    line-height: 1.4;
+}
+#hover-tooltip b { color: #f39c12; }

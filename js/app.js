@@ -212,8 +212,43 @@ function renderTimeline(data) {
 
     const p_bars = peopleGroup.selectAll(".person-group").data(data.filter(d => d.type === 'people'), d => d.id);
     p_bars.exit().remove();
-    const p_enter = p_bars.enter().append("g").attr("class", "person-group").on("click", (event, d) => openDetail(d));
-    
+    const p_enter = p_bars.enter().append("g")
+        .attr("class", "person-group")
+        .on("click", (event, d) => openDetail(d))
+        .on("mouseover", function() { d3.select("#hover-tooltip").style("opacity", 1); })
+        .on("mouseout", function() { d3.select("#hover-tooltip").style("opacity", 0); })
+        .on("mousemove", function(event, d) {
+            // Aflăm unde e mouse-ul pe axa timpului
+            const currentTransform = d3.zoomTransform(svg.node());
+            const currentXScale = currentTransform.rescaleX(xScale);
+            const mouseX = d3.pointer(event, svg.node())[0];
+            const hoveredDate = currentXScale.invert(mouseX);
+
+            // Dacă mouse-ul a ieșit din anii de viață ai persoanei (marginile rotunjite), ascundem
+            if (hoveredDate < d.start || hoveredDate > d.end) {
+                d3.select("#hover-tooltip").style("opacity", 0);
+                return;
+            }
+
+            // Calculăm vârsta exactă în acel moment
+            let age = hoveredDate.getFullYear() - d.start.getFullYear();
+            let m = hoveredDate.getMonth() - d.start.getMonth();
+            if (m < 0 || (m === 0 && hoveredDate.getDate() < d.start.getDate())) { age--; }
+            if (age < 0) age = 0;
+
+            // Formatăm anul frumos
+            let displayYear = hoveredDate.getFullYear();
+            let era = displayYear <= 0 ? " î.Hr." : "";
+            displayYear = displayYear <= 0 ? Math.abs(displayYear) + 1 : displayYear;
+
+            // Afișăm textul și poziționăm tooltip-ul lângă cursor
+            d3.select("#hover-tooltip")
+                .html(`În anul <b>${displayYear}${era}</b><br>avea <b>${age} ani</b>`)
+                .style("left", (event.pageX + 15) + "px")
+                .style("top", (event.pageY - 40) + "px")
+                .style("opacity", 1);
+        });
+        
     p_enter.append("rect").attr("class", "person-bar").attr("height", 24).attr("fill", d => getColorForId(d.rawId, false)); 
     
     p_enter.filter(d => d.image && d.image.includes('http'))
