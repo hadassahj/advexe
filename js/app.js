@@ -366,18 +366,37 @@ function processExport(type) {
     const originalBtnText = exportBtn.innerHTML;
     exportBtn.innerHTML = `⏳ Se procesează...`;
     
+    // Definim variabilele în siguranță la nivel înalt
+    let exportWidth = width;
+    let exportHeight = height;
+    let oldCenterY = centerY;
+    let currentTransform = d3.zoomTransform(svg.node());
+    
+    // DETECTĂM MOBILUL DUPĂ SISTEMUL DE OPERARE, NU DUPĂ LĂȚIME!
+    // Astfel, un laptop micșorat nu va mai fi confundat niciodată cu un telefon.
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+    // Funcția care aduce graficul înapoi la normal (o definim aici ca să o putem folosi oriunde)
+    function resetView() {
+        if (type === 'full') {
+            centerY = oldCenterY;
+            svg.attr("width", width).attr("height", height);
+            xAxisGroup.attr("transform", `translate(0, ${centerY})`);
+            todayLine.attr("y2", height);
+            d3.select("#clip-top rect").attr("width", width).attr("height", centerY);
+            d3.select("#clip-bottom rect").attr("width", width).attr("y", centerY - 10).attr("height", height - centerY + 10);
+            xScale.range([0, width]);
+            updatePositions(currentTransform);
+        }
+    }
+
     setTimeout(() => {
         try {
-            const isMobile = window.innerWidth <= 768;
-            
-            // 1. Configurăm dimensiunile (pe mobil forțăm max 2000px lățime ca să nu crape RAM-ul)
-            let exportWidth = width;
-            let exportHeight = height;
-            let oldCenterY = centerY;
-            let currentTransform = d3.zoomTransform(svg.node());
+            crosshairGroup.style("display", "none");
 
             if (type === 'full') {
-                exportWidth = isMobile ? 2000 : 5000;
+                // Lățime adaptată (2500 pe mobil e suficient de clar, 5000 pe PC e HD pur)
+                exportWidth = isMobile ? 2500 : 5000;
                 const maxPLane = d3.max(currentItems.filter(d => d.type === 'people'), d => d.lane) || 0;
                 const maxELane = d3.max(currentItems.filter(d => d.type === 'events'), d => d.lane) || 0;
                 const neededTop = (maxPLane * 35) + 150;
@@ -386,7 +405,6 @@ function processExport(type) {
                 exportHeight = Math.max(height, neededTop + neededBottom);
                 centerY = neededTop;
                 
-                // Repunem SVG-ul în formatul mare temporar
                 svg.attr("width", exportWidth).attr("height", exportHeight);
                 xAxisGroup.attr("transform", `translate(0, ${centerY})`);
                 todayLine.attr("y2", exportHeight);
@@ -398,26 +416,20 @@ function processExport(type) {
                 updatePositions(d3.zoomIdentity);
             }
 
-            // 2. Extragem codul de bază al SVG-ului într-un mod 100% sigur
             const svgNode = document.querySelector("#visualization svg");
-            
-            // Creăm o clonă pentru a nu strica interfața vizibilă
             const clone = svgNode.cloneNode(true);
             
-            // SETĂM MANUAL TOATE ATRIBUTELE (Esențial pentru mobil)
             clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
             clone.style.backgroundColor = "#fdfdfd";
-            clone.style.fontFamily = "sans-serif";
 
-            // ȘTERGEM IMAGINILE EXTERNE (Astea declanșează eroarea CORS de securitate pe Apple/Android)
+            // Curățăm pozele din interior ca să fentăm securitatea pe iOS/Android
             const images = clone.querySelectorAll("image");
             images.forEach(img => img.remove());
             
-            // Ștergem tracker-ul de mouse
             const crosshair = clone.querySelector(".crosshair-group");
             if(crosshair) crosshair.remove();
 
-            // Adăugăm CSS-ul direct în clonă, FĂRĂ fonturi externe!
+            // Injectăm un CSS ultra-curat direct în inimă
             const style = document.createElement('style');
             style.textContent = `
                 path, line, rect { fill-opacity: 1; }
@@ -438,11 +450,10 @@ function processExport(type) {
             `;
             clone.insertBefore(style, clone.firstChild);
 
-            // 3. Serializare și Transformare în Imagine
             const serializer = new XMLSerializer();
             let svgString = serializer.serializeToString(clone);
             
-            // Codare specială pentru diacritice (btoa cu unescape e blindat)
+            // Această codare cu btoa + unescape este secretul succesului pentru diacritice și telefoane
             const encodedData = window.btoa(unescape(encodeURIComponent(svgString)));
             const imgSrc = "data:image/svg+xml;base64," + encodedData;
 
@@ -450,8 +461,7 @@ function processExport(type) {
             img.onload = function() {
                 try {
                     const canvas = document.createElement("canvas");
-                    // Pe telefon facem rezoluția 1:1, pe PC 2:1 pentru HD
-                    const scale = isMobile ? 1 : 2;
+                    const scale = isMobile ? 1 : 2; // Rezoluție sigură pe mobil, HD nativ pe PC
                     canvas.width = exportWidth * scale;
                     canvas.height = exportHeight * scale;
                     
@@ -465,12 +475,12 @@ function processExport(type) {
                     exportBtn.innerHTML = originalBtnText;
 
                     if (isMobile) {
-                        // Pe mobil afișăm modalul
+                        // Mobil: Fereastra pentru "Long Press"
                         document.getElementById('mobile-export-img').src = pngUrl;
                         document.getElementById('main-overlay').classList.add('active');
                         document.getElementById('mobile-export-modal').classList.add('active');
                     } else {
-                        // Pe PC descărcăm direct
+                        // Laptop / PC: Descărcare curată și automată (chiar și cu fereastra mică)
                         const a = document.createElement("a");
                         a.download = type === 'full' ? "Cronologie_Panorama.png" : "Cronologie_Detaliu.png";
                         a.href = pngUrl;
@@ -479,7 +489,7 @@ function processExport(type) {
                         document.body.removeChild(a);
                     }
                 } catch (e) {
-                    alert("Aplicația a funcționat, dar telefonul a refuzat generarea. RAM insuficient.");
+                    alert("Eroare la crearea imaginii: " + e.message);
                     exportBtn.innerHTML = originalBtnText;
                 } finally {
                     resetView();
@@ -487,29 +497,15 @@ function processExport(type) {
             };
             
             img.onerror = function() {
-                alert("Sistemul de securitate al browser-ului a blocat imaginea.");
+                alert("Securitatea browser-ului a blocat preluarea.");
                 exportBtn.innerHTML = originalBtnText;
                 resetView();
             };
 
             img.src = imgSrc;
 
-            // Funcție de siguranță: indiferent ce se întâmplă, te întoarce la vizualizarea normală
-            function resetView() {
-                if (type === 'full') {
-                    centerY = oldCenterY;
-                    svg.attr("width", width).attr("height", height);
-                    xAxisGroup.attr("transform", `translate(0, ${centerY})`);
-                    todayLine.attr("y2", height);
-                    d3.select("#clip-top rect").attr("width", width).attr("height", centerY);
-                    d3.select("#clip-bottom rect").attr("width", width).attr("y", centerY - 10).attr("height", height - centerY + 10);
-                    xScale.range([0, width]);
-                    updatePositions(currentTransform);
-                }
-            }
-
         } catch (err) {
-            alert("A apărut o eroare neașteptată. Graficul revine la normal.");
+            alert("Eroare critică: " + err.message);
             exportBtn.innerHTML = originalBtnText;
             resetView();
         }
