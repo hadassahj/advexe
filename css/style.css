@@ -135,3 +135,54 @@ body, html { margin: 0; padding: 0; height: 100%; font-family: 'Inter', sans-ser
     line-height: 1.4;
 }
 #hover-tooltip b { color: #f39c12; }
+
+/* =========================================
+   DARK MODE THEME
+========================================= */
+body.dark-mode {
+    background-color: #121212;
+    color: #e0e0e0;
+}
+
+body.dark-mode .custom-modal,
+body.dark-mode .modal-body {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+    border-color: #333;
+}
+
+body.dark-mode .iframe-header {
+    background-color: #252525;
+    border-bottom: 1px solid #333;
+    color: #fff;
+}
+
+body.dark-mode #hover-tooltip {
+    background: #e0e0e0;
+    color: #121212;
+}
+
+/* Stilizare pentru butonul de temă */
+#theme-toggle {
+    font-size: 1.2rem;
+    background: transparent;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 6px 12px;
+    transition: all 0.3s ease;
+}
+
+body.dark-mode #theme-toggle {
+    border-color: #444;
+    background: #1e1e1e;
+}
+
+/* Elemente SVG pe Dark Mode */
+body.dark-mode .axis-line path, 
+body.dark-mode .axis-line line { stroke: #444; }
+body.dark-mode .axis-line text { fill: #aaa; }
+body.dark-mode .person-label { fill: #e0e0e0; }
+body.dark-mode .event-label { fill: #e0e0e0; }
+body.dark-mode .event-label-bg { fill: #121212; }
+body.dark-mode .person-bar { stroke: rgba(255,255,255,0.1); }

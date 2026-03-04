@@ -1,3 +1,32 @@
+// =========================================
+// SISTEMUL DARK / LIGHT MODE
+// =========================================
+document.addEventListener('DOMContentLoaded', () => {
+    const themeToggle = document.getElementById('theme-toggle');
+    const themeIcon = document.getElementById('theme-icon');
+    
+    // 1. Verificăm dacă utilizatorul are o preferință salvată în browser
+    if (localStorage.getItem('advexe_theme') === 'dark') {
+        document.body.classList.add('dark-mode');
+        if(themeIcon) themeIcon.textContent = '☀️';
+    }
+
+    // 2. Ce se întâmplă când dăm click pe buton
+    if (themeToggle) {
+        themeToggle.addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+            const isDark = document.body.classList.contains('dark-mode');
+            
+            // Salvăm decizia în memoria telefonului/PC-ului
+            localStorage.setItem('advexe_theme', isDark ? 'dark' : 'light');
+            
+            // Schimbăm iconița din Lună în Soare și invers
+            themeIcon.textContent = isDark ? '☀️' : '🌙';
+        });
+    }
+});
+
+
 const SHEET_ID = '1njukwYjPgkTT_rAr5VCZycVRQrEMd3ijlbXeCF-E2e4';
 const API_KEY = 'AIzaSyDA9E0fYie3ATrAceDxETVmQvwFxrl_bRM';
 
@@ -248,7 +277,7 @@ function renderTimeline(data) {
                 .style("top", (event.pageY - 40) + "px")
                 .style("opacity", 1);
         });
-        
+
     p_enter.append("rect").attr("class", "person-bar").attr("height", 24).attr("fill", d => getColorForId(d.rawId, false)); 
     
     p_enter.filter(d => d.image && d.image.includes('http'))
