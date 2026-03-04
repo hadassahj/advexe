@@ -135,54 +135,62 @@ body, html { margin: 0; padding: 0; height: 100%; font-family: 'Inter', sans-ser
     line-height: 1.4;
 }
 #hover-tooltip b { color: #f39c12; }
-
 /* =========================================
-   DARK MODE THEME
+   PREMIUM DARK MODE
 ========================================= */
 body.dark-mode {
-    background-color: #121212;
-    color: #e0e0e0;
+    background-color: #121212 !important;
+    color: #e2e8f0 !important;
 }
 
+/* Forțăm absolut toate butoanele să se închidă la culoare */
+body.dark-mode button,
+body.dark-mode .btn,
+body.dark-mode .btn-export,
+body.dark-mode .btn-tool,
+body.dark-mode .close-btn {
+    background-color: #2c3e50 !important;
+    color: #e2e8f0 !important;
+    border: 1px solid #444 !important;
+}
+
+body.dark-mode button:hover {
+    background-color: #34495e !important;
+}
+
+/* Stilizăm Meniul din Dreapta (panoul de detalii) */
+/* (Am pus cele mai comune clase. Dacă nu se aplică, îmi zici cum se numește id-ul lui) */
+body.dark-mode #info-panel,
+body.dark-mode .side-panel,
+body.dark-mode #details-panel,
+body.dark-mode .panel {
+    background-color: #1e1e1e !important;
+    color: #e2e8f0 !important;
+    border-color: #333 !important;
+    box-shadow: -2px 0 10px rgba(0,0,0,0.5) !important;
+}
+
+/* Ferestrele Modal (Pop-up-ul de pe telefon/PC) */
 body.dark-mode .custom-modal,
-body.dark-mode .modal-body {
-    background-color: #1e1e1e;
-    color: #e0e0e0;
-    border-color: #333;
-}
-
+body.dark-mode .modal-body,
 body.dark-mode .iframe-header {
-    background-color: #252525;
-    border-bottom: 1px solid #333;
-    color: #fff;
+    background-color: #1e1e1e !important;
+    color: #e2e8f0 !important;
+    border-color: #333 !important;
 }
 
-body.dark-mode #hover-tooltip {
-    background: #e0e0e0;
-    color: #121212;
+body.dark-mode .custom-modal p,
+body.dark-mode .modal-body p {
+    color: #b0bec5 !important;
 }
 
-/* Stilizare pentru butonul de temă */
-#theme-toggle {
-    font-size: 1.2rem;
-    background: transparent;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    cursor: pointer;
-    padding: 6px 12px;
-    transition: all 0.3s ease;
-}
-
-body.dark-mode #theme-toggle {
-    border-color: #444;
-    background: #1e1e1e;
-}
-
-/* Elemente SVG pe Dark Mode */
+/* Graficul D3 (Liniile și Textele) */
 body.dark-mode .axis-line path, 
-body.dark-mode .axis-line line { stroke: #444; }
-body.dark-mode .axis-line text { fill: #aaa; }
-body.dark-mode .person-label { fill: #e0e0e0; }
-body.dark-mode .event-label { fill: #e0e0e0; }
-body.dark-mode .event-label-bg { fill: #121212; }
-body.dark-mode .person-bar { stroke: rgba(255,255,255,0.1); }
+body.dark-mode .axis-line line { stroke: #475569 !important; }
+body.dark-mode .axis-line text { fill: #94a3b8 !important; font-weight: 500; }
+body.dark-mode .person-label { fill: #f8fafc !important; }
+body.dark-mode .event-label { fill: #f8fafc !important; }
+body.dark-mode .event-label-bg { fill: #1e1e1e !important; opacity: 0.9; }
+body.dark-mode .person-bar { stroke: rgba(255,255,255,0.15) !important; }
+body.dark-mode .event-line { stroke: #e74c3c !important; opacity: 0.9 !important; }
+body.dark-mode .today-text { fill: #ff6b6b !important; }
