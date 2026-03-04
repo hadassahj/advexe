@@ -360,103 +360,160 @@ function openExportModal() {
 }
 
 function processExport(type) {
-    closeAll(); 
+    closeAll();
     
     const exportBtn = document.querySelector('.btn-export');
     const originalBtnText = exportBtn.innerHTML;
     exportBtn.innerHTML = `⏳ Se procesează...`;
     
-    setTimeout(() => { 
-        let exportWidth = width; 
-        let exportHeight = height; 
-        let oldCenterY = centerY; 
-        let currentTransform = d3.zoomTransform(svg.node());
-        crosshairGroup.style("display", "none");
-
-        const isMobile = window.innerWidth <= 768;
-
-        if (type === 'full') {
-            // Lățime ultra-sigură pentru memoria RAM de pe telefon
-            exportWidth = isMobile ? 2500 : 5000; 
-            const maxPLane = d3.max(currentItems.filter(d => d.type === 'people'), d => d.lane) || 0;
-            const maxELane = d3.max(currentItems.filter(d => d.type === 'events'), d => d.lane) || 0;
-            const neededTop = (maxPLane * 35) + 150; 
-            const neededBottom = (maxELane * 50) + 150;
+    setTimeout(() => {
+        try {
+            const isMobile = window.innerWidth <= 768;
             
-            exportHeight = Math.max(height, neededTop + neededBottom); 
-            centerY = neededTop; 
-            
-            svg.attr("width", exportWidth).attr("height", exportHeight);
-            xAxisGroup.attr("transform", `translate(0, ${centerY})`); 
-            todayLine.attr("y2", exportHeight);
-            
-            d3.select("#clip-top rect").attr("width", exportWidth).attr("height", centerY);
-            d3.select("#clip-bottom rect").attr("width", exportWidth).attr("y", centerY - 10).attr("height", exportHeight - centerY + 10);
+            // 1. Configurăm dimensiunile (pe mobil forțăm max 2000px lățime ca să nu crape RAM-ul)
+            let exportWidth = width;
+            let exportHeight = height;
+            let oldCenterY = centerY;
+            let currentTransform = d3.zoomTransform(svg.node());
 
-            panYTop = 0; panYBottom = 0; 
-            xScale.range([0, exportWidth]); 
-            updatePositions(d3.zoomIdentity); 
+            if (type === 'full') {
+                exportWidth = isMobile ? 2000 : 5000;
+                const maxPLane = d3.max(currentItems.filter(d => d.type === 'people'), d => d.lane) || 0;
+                const maxELane = d3.max(currentItems.filter(d => d.type === 'events'), d => d.lane) || 0;
+                const neededTop = (maxPLane * 35) + 150;
+                const neededBottom = (maxELane * 50) + 150;
+                
+                exportHeight = Math.max(height, neededTop + neededBottom);
+                centerY = neededTop;
+                
+                // Repunem SVG-ul în formatul mare temporar
+                svg.attr("width", exportWidth).attr("height", exportHeight);
+                xAxisGroup.attr("transform", `translate(0, ${centerY})`);
+                todayLine.attr("y2", exportHeight);
+                
+                d3.select("#clip-top rect").attr("width", exportWidth).attr("height", centerY);
+                d3.select("#clip-bottom rect").attr("width", exportWidth).attr("y", centerY - 10).attr("height", exportHeight - centerY + 10);
+
+                xScale.range([0, exportWidth]);
+                updatePositions(d3.zoomIdentity);
+            }
+
+            // 2. Extragem codul de bază al SVG-ului într-un mod 100% sigur
+            const svgNode = document.querySelector("#visualization svg");
+            
+            // Creăm o clonă pentru a nu strica interfața vizibilă
+            const clone = svgNode.cloneNode(true);
+            
+            // SETĂM MANUAL TOATE ATRIBUTELE (Esențial pentru mobil)
+            clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+            clone.style.backgroundColor = "#fdfdfd";
+            clone.style.fontFamily = "sans-serif";
+
+            // ȘTERGEM IMAGINILE EXTERNE (Astea declanșează eroarea CORS de securitate pe Apple/Android)
+            const images = clone.querySelectorAll("image");
+            images.forEach(img => img.remove());
+            
+            // Ștergem tracker-ul de mouse
+            const crosshair = clone.querySelector(".crosshair-group");
+            if(crosshair) crosshair.remove();
+
+            // Adăugăm CSS-ul direct în clonă, FĂRĂ fonturi externe!
+            const style = document.createElement('style');
+            style.textContent = `
+                path, line, rect { fill-opacity: 1; }
+                .axis-line path { stroke: #cbd5e1; stroke-width: 2px; }
+                .axis-line line { stroke: #cbd5e1; stroke-opacity: 0.5; }
+                .axis-line text { fill: #94a3b8; font-family: sans-serif; font-size: 12px; }
+                .person-bar { stroke: rgba(0,0,0,0.1); stroke-width: 1px; }
+                .person-label { fill: #111; font-size: 12px; font-family: sans-serif; font-weight: bold; }
+                .genealogy-link { fill: none; stroke: #94a3b8; stroke-width: 2px; stroke-dasharray: 4,4; opacity: 0.5; }
+                .event-line { stroke: #c0392b; stroke-width: 1.5px; opacity: 0.7; }
+                .event-dot { fill: white; stroke: #c0392b; stroke-width: 2.5px; }
+                .event-label { fill: #111; font-size: 12px; font-family: sans-serif; font-weight: bold; }
+                .event-label-bg { fill: white; opacity: 0.9; }
+                .event-brace-path { fill: none; stroke-width: 2.5px; opacity: 0.85; }
+                .event-brace-label { fill: #111; font-size: 12px; font-family: sans-serif; font-weight: bold; }
+                .today-line { stroke: #e74c3c; stroke-width: 1.5px; stroke-dasharray: 5,5; opacity: 0.7; }
+                .today-text { fill: #e74c3c; font-size: 11px; font-weight: bold; font-family: sans-serif; }
+            `;
+            clone.insertBefore(style, clone.firstChild);
+
+            // 3. Serializare și Transformare în Imagine
+            const serializer = new XMLSerializer();
+            let svgString = serializer.serializeToString(clone);
+            
+            // Codare specială pentru diacritice (btoa cu unescape e blindat)
+            const encodedData = window.btoa(unescape(encodeURIComponent(svgString)));
+            const imgSrc = "data:image/svg+xml;base64," + encodedData;
+
+            const img = new Image();
+            img.onload = function() {
+                try {
+                    const canvas = document.createElement("canvas");
+                    // Pe telefon facem rezoluția 1:1, pe PC 2:1 pentru HD
+                    const scale = isMobile ? 1 : 2;
+                    canvas.width = exportWidth * scale;
+                    canvas.height = exportHeight * scale;
+                    
+                    const ctx = canvas.getContext("2d");
+                    ctx.fillStyle = "#fdfdfd";
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.scale(scale, scale);
+                    ctx.drawImage(img, 0, 0);
+
+                    const pngUrl = canvas.toDataURL("image/png");
+                    exportBtn.innerHTML = originalBtnText;
+
+                    if (isMobile) {
+                        // Pe mobil afișăm modalul
+                        document.getElementById('mobile-export-img').src = pngUrl;
+                        document.getElementById('main-overlay').classList.add('active');
+                        document.getElementById('mobile-export-modal').classList.add('active');
+                    } else {
+                        // Pe PC descărcăm direct
+                        const a = document.createElement("a");
+                        a.download = type === 'full' ? "Cronologie_Panorama.png" : "Cronologie_Detaliu.png";
+                        a.href = pngUrl;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                    }
+                } catch (e) {
+                    alert("Aplicația a funcționat, dar telefonul a refuzat generarea. RAM insuficient.");
+                    exportBtn.innerHTML = originalBtnText;
+                } finally {
+                    resetView();
+                }
+            };
+            
+            img.onerror = function() {
+                alert("Sistemul de securitate al browser-ului a blocat imaginea.");
+                exportBtn.innerHTML = originalBtnText;
+                resetView();
+            };
+
+            img.src = imgSrc;
+
+            // Funcție de siguranță: indiferent ce se întâmplă, te întoarce la vizualizarea normală
+            function resetView() {
+                if (type === 'full') {
+                    centerY = oldCenterY;
+                    svg.attr("width", width).attr("height", height);
+                    xAxisGroup.attr("transform", `translate(0, ${centerY})`);
+                    todayLine.attr("y2", height);
+                    d3.select("#clip-top rect").attr("width", width).attr("height", centerY);
+                    d3.select("#clip-bottom rect").attr("width", width).attr("y", centerY - 10).attr("height", height - centerY + 10);
+                    xScale.range([0, width]);
+                    updatePositions(currentTransform);
+                }
+            }
+
+        } catch (err) {
+            alert("A apărut o eroare neașteptată. Graficul revine la normal.");
+            exportBtn.innerHTML = originalBtnText;
+            resetView();
         }
-
-        // Așteptăm 100 milisecunde ca D3 să așeze vizual elementele
-        setTimeout(() => {
-            const targetNode = document.querySelector("#visualization svg");
-
-            // MAGIC: Folosim librăria html2canvas pentru a "fotografia" ecranul
-            html2canvas(targetNode, {
-                useCORS: true,           // Permite afișarea pozelor oamenilor
-                allowTaint: false,       // Oprește erorile de securitate
-                backgroundColor: "#fdfdfd", 
-                scale: isMobile ? 1 : 2  // Protejează RAM-ul pe telefoane
-            }).then(canvas => {
-                const dataUrl = canvas.toDataURL("image/png");
-                exportBtn.innerHTML = originalBtnText;
-
-                if (isMobile) {
-                    // Pe mobil: Arătăm fereastra ca să țină apăsat pe poză
-                    document.getElementById('mobile-export-img').src = dataUrl;
-                    document.getElementById('main-overlay').classList.add('active');
-                    document.getElementById('mobile-export-modal').classList.add('active');
-                } else {
-                    // Pe PC: Descărcare automată
-                    const a = document.createElement("a"); 
-                    a.download = type === 'full' ? "Cronologie_Panorama_HD.png" : "Cronologie_Detaliu_HD.png";
-                    a.href = dataUrl;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                }
-
-                // Resetăm graficul după ce am făcut poza
-                if (type === 'full') {
-                    centerY = oldCenterY; 
-                    svg.attr("width", width).attr("height", height);
-                    xAxisGroup.attr("transform", `translate(0, ${centerY})`); 
-                    todayLine.attr("y2", height);
-                    d3.select("#clip-top rect").attr("width", width).attr("height", centerY);
-                    d3.select("#clip-bottom rect").attr("width", width).attr("y", centerY - 10).attr("height", height - centerY + 10);
-                    xScale.range([0, width]); 
-                    updatePositions(currentTransform);
-                }
-            }).catch(err => {
-                console.error("Eroare html2canvas:", err);
-                alert("A apărut o eroare la salvarea imaginii.");
-                exportBtn.innerHTML = originalBtnText;
-
-                // Resetăm chiar și dacă a eșuat
-                if (type === 'full') {
-                    centerY = oldCenterY; 
-                    svg.attr("width", width).attr("height", height);
-                    xAxisGroup.attr("transform", `translate(0, ${centerY})`); 
-                    todayLine.attr("y2", height);
-                    d3.select("#clip-top rect").attr("width", width).attr("height", centerY);
-                    d3.select("#clip-bottom rect").attr("width", width).attr("y", centerY - 10).attr("height", height - centerY + 10);
-                    xScale.range([0, width]); 
-                    updatePositions(currentTransform);
-                }
-            });
-        }, 100); 
-    }, 300); 
+    }, 150);
 }
 
 function applyFilters() {
