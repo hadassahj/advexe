@@ -188,7 +188,14 @@ body.dark-mode .modal-body p {
 body.dark-mode .axis-line path, 
 body.dark-mode .axis-line line { stroke: #475569 !important; }
 body.dark-mode .axis-line text { fill: #94a3b8 !important; font-weight: 500; }
-body.dark-mode .person-label { fill: #f8fafc !important; }
+/* Readucem textul de pe barele oamenilor la negru, ca să facă un contrast puternic cu pastelurile */
+body.dark-mode .person-label { fill: #111 !important; }
+
+/* Facem textele de sub acolade (evenimentele lungi) albe și le punem o umbră ca să iasă în evidență */
+body.dark-mode .event-brace-label { 
+    fill: #f8fafc !important; 
+    text-shadow: 0 2px 4px rgba(0,0,0,0.9) !important; 
+}
 body.dark-mode .event-label { fill: #f8fafc !important; }
 body.dark-mode .event-label-bg { fill: #1e1e1e !important; opacity: 0.9; }
 body.dark-mode .person-bar { stroke: rgba(255,255,255,0.15) !important; }
