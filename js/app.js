@@ -340,62 +340,39 @@ function handleZoom(event) {
 }
 
 function updatePositions(transform) {
-    const currentXScale = transform.rescaleX(xScale);
+    if (!xScale) return;
+    
+    const newXScale = transform.rescaleX(xScale);
+    xAxisGroup.call(d3.axisBottom(newXScale).tickSizeOuter(0));
+    
+    const todayX = newXScale(new Date());
+    todayGroup.attr("transform", `translate(${todayX}, 0)`);
+    todayText.attr("x", 5);
 
-    // 1. Axa X
-    xAxisGroup.call(xAxis.scale(currentXScale));
+    peopleGroup.selectAll(".person-group").attr("transform", d => `translate(${newXScale(d.start)}, ${centerY - 28 - (d.lane * 35) + panYTop})`);
+    peopleGroup.selectAll(".person-bar").attr("width", d => Math.max(5, newXScale(d.end) - newXScale(d.start)));
 
-    // 2. Oameni (Bare și Texte)
-    svg.selectAll(".person-group")
-        .attr("transform", d => `translate(0, ${-(d.lane * 35) - 20})`);
+    linksGroup.selectAll(".genealogy-link").attr("d", d => {
+        const parentX = newXScale(d.source.start) + 15; 
+        const parentY = centerY - 28 - (d.source.lane * 35) + 24 + panYTop; 
+        const childX = newXScale(d.target.start);
+        const childY = centerY - 28 - (d.target.lane * 35) + 12 + panYTop; 
+        return `M ${parentX},${parentY} C ${parentX},${childY} ${childX - 20},${childY} ${childX},${childY}`;
+    });
 
-    svg.selectAll(".person-bar")
-        .attr("x", d => currentXScale(d.start))
-        .attr("width", d => Math.max(5, currentXScale(d.end) - currentXScale(d.start)));
+    eventsGroup.selectAll(".event-range-group").attr("transform", d => `translate(${newXScale(d.start)}, ${centerY + 18 + (d.lane * 50) - panYBottom})`);
+    eventsGroup.selectAll(".event-brace-path").attr("d", d => getBracePathDown(Math.max(10, newXScale(d.end) - newXScale(d.start)), 10));
+    eventsGroup.selectAll(".event-brace-label").attr("dx", d => Math.max(10, newXScale(d.end) - newXScale(d.start)) / 2).attr("dy", 35);
 
-    svg.selectAll(".person-label")
-        .attr("x", d => currentXScale(d.start) + 5);
-
-    // 3. Evenimente Punctuale
-    svg.selectAll(".event-dot")
-        .attr("cx", d => currentXScale(d.start));
-
-    svg.selectAll(".event-label")
-        .attr("x", d => currentXScale(d.start));
-
-    svg.selectAll(".event-line")
-        .attr("x1", d => currentXScale(d.start))
-        .attr("x2", d => currentXScale(d.start));
-
-    // 4. Evenimente Interval (Acolade)
-    svg.selectAll(".event-brace-path")
-        .attr("d", function(d) {
-            const x1 = currentXScale(d.start);
-            const x2 = currentXScale(d.end);
-            // Păstrăm Y-ul calculat la încărcare, constant și sigur
-            const y = (d.lane * 50) + 30; 
-            const midX = (x1 + x2) / 2;
-            return `M ${x1} ${y} Q ${x1} ${y+10} ${x1+10} ${y+10} L ${midX-10} ${y+10} Q ${midX} ${y+10} ${midX} ${y+20} Q ${midX} ${y+10} ${midX+10} ${y+10} L ${x2-10} ${y+10} Q ${x2} ${y+10} ${x2} ${y}`;
-        });
-
-    svg.selectAll(".event-brace-label")
-        .attr("x", d => currentXScale(d.start) + (currentXScale(d.end) - currentXScale(d.start)) / 2);
-
-    // 5. Linia pentru "Astăzi"
-    const todayX = currentXScale(new Date());
-    todayLine.attr("x1", todayX).attr("x2", todayX);
-    todayText.attr("x", todayX + 5);
-
-    // 6. Liniile de Genealogie (dacă există)
-    svg.selectAll(".genealogy-link")
-       .attr("d", d => {
-           if (!d.source || !d.target) return "";
-           const sourceX = currentXScale(d.source.start) + 10;
-           const sourceY = -(d.source.lane * 35) - 5;
-           const targetX = currentXScale(d.target.start) + 10;
-           const targetY = -(d.target.lane * 35) - 35;
-           return `M ${sourceX} ${sourceY} C ${sourceX} ${(sourceY+targetY)/2}, ${targetX} ${(sourceY+targetY)/2}, ${targetX} ${targetY}`;
-       });
+    eventsGroup.selectAll(".event-point-group").attr("transform", d => `translate(${newXScale(d.start)}, 0)`);
+    eventsGroup.selectAll(".event-line").attr("y1", centerY).attr("y2", d => Math.max(centerY, centerY + 35 + (d.lane * 30) - panYBottom));
+    eventsGroup.selectAll(".event-dot").attr("cy", centerY);
+    eventsGroup.selectAll(".event-label").attr("y", d => centerY + 50 + (d.lane * 30) - panYBottom);
+    eventsGroup.selectAll(".event-label-bg")
+        .attr("x", function() { return -this.parentNode.querySelector('text').getBBox().width/2 - 5; })
+        .attr("y", d => centerY + 37 + (d.lane * 30) - panYBottom)
+        .attr("width", function() { return this.parentNode.querySelector('text').getBBox().width + 10; })
+        .attr("height", 18).attr("rx", 4);
 }
 
 function formatHoverDate(date) {
@@ -708,7 +685,5 @@ function openDetail(item) {
     document.getElementById('main-overlay').classList.add('active');
     setTimeout(() => { document.getElementById('detail-modal').classList.add('active'); }, 50);
 }
-
-
 
 window.onload = loadData;
