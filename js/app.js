@@ -342,52 +342,12 @@ function handleZoom(event) {
 function updatePositions(transform) {
     const currentXScale = transform.rescaleX(xScale);
 
-    // 1. CALCULĂM BENZILE "LIVE" ÎN PIXELI PENTRU ECRANUL CURENT
-    const peopleLanes = [];
-    const eventLanes = [];
-    
-    // Sortăm cronologic pentru a le așeza corect de la stânga la dreapta
-    const sortedPeople = currentItems.filter(d => d.type === 'people').sort((a, b) => a.start - b.start);
-    const sortedEvents = currentItems.filter(d => d.type === 'events').sort((a, b) => a.start - b.start);
-
-    // Tetris pentru Oameni (Partea de Sus)
-    sortedPeople.forEach(d => {
-        const pxStart = currentXScale(d.start);
-        // Aproximăm lungimea barei + a textului vizibil (aprox 7 px pe literă)
-        const approxTextWidth = (d.name.length + 15) * 6.5; 
-        const pxEnd = Math.max(currentXScale(d.end), pxStart + approxTextWidth);
-        
-        let lane = 0;
-        // Găsim primul nivel liber pe verticală
-        while (peopleLanes[lane] !== undefined && peopleLanes[lane] > pxStart - 10) {
-            lane++;
-        }
-        peopleLanes[lane] = pxEnd + 10;
-        d.liveLane = lane; // Îi atribuim nivelul calculat live
-    });
-
-    // Tetris pentru Evenimente (Partea de Jos)
-    sortedEvents.forEach(d => {
-        const pxStart = currentXScale(d.start);
-        const approxTextWidth = (d.name.length + 15) * 6.5;
-        const pxEnd = d.end ? Math.max(currentXScale(d.end), pxStart + approxTextWidth) : pxStart + approxTextWidth;
-        
-        let lane = 0;
-        while (eventLanes[lane] !== undefined && eventLanes[lane] > pxStart - 15) {
-            lane++;
-        }
-        eventLanes[lane] = pxEnd + 15;
-        d.liveLane = lane;
-    });
-
-    // 2. DESENĂM ELEMENTELE PE NOILE LOR POZIȚII
-    
-    // Axa Timpului
+    // 1. Axa X
     xAxisGroup.call(xAxis.scale(currentXScale));
 
-    // Oameni
+    // 2. Oameni (Bare și Texte)
     svg.selectAll(".person-group")
-        .attr("transform", d => `translate(0, ${-(d.liveLane * 35) - 20})`);
+        .attr("transform", d => `translate(0, ${-(d.lane * 35) - 20})`);
 
     svg.selectAll(".person-bar")
         .attr("x", d => currentXScale(d.start))
@@ -396,48 +356,44 @@ function updatePositions(transform) {
     svg.selectAll(".person-label")
         .attr("x", d => currentXScale(d.start) + 5);
 
-    // Evenimente Punctuale
+    // 3. Evenimente Punctuale
     svg.selectAll(".event-dot")
-        .attr("cx", d => currentXScale(d.start))
-        .attr("cy", d => (d.liveLane * 45) + 30);
+        .attr("cx", d => currentXScale(d.start));
 
     svg.selectAll(".event-label")
-        .attr("x", d => currentXScale(d.start))
-        .attr("y", d => (d.liveLane * 45) + 50);
+        .attr("x", d => currentXScale(d.start));
 
     svg.selectAll(".event-line")
         .attr("x1", d => currentXScale(d.start))
-        .attr("x2", d => currentXScale(d.start))
-        .attr("y1", 0)
-        .attr("y2", d => (d.liveLane * 45) + 30);
+        .attr("x2", d => currentXScale(d.start));
 
-    // Evenimente cu Acoladă (Intervale)
+    // 4. Evenimente Interval (Acolade)
     svg.selectAll(".event-brace-path")
         .attr("d", function(d) {
             const x1 = currentXScale(d.start);
             const x2 = currentXScale(d.end);
-            const y = (d.liveLane * 45) + 30;
+            // Păstrăm Y-ul calculat la încărcare, constant și sigur
+            const y = (d.lane * 50) + 30; 
             const midX = (x1 + x2) / 2;
             return `M ${x1} ${y} Q ${x1} ${y+10} ${x1+10} ${y+10} L ${midX-10} ${y+10} Q ${midX} ${y+10} ${midX} ${y+20} Q ${midX} ${y+10} ${midX+10} ${y+10} L ${x2-10} ${y+10} Q ${x2} ${y+10} ${x2} ${y}`;
         });
 
     svg.selectAll(".event-brace-label")
-        .attr("x", d => currentXScale(d.start) + (currentXScale(d.end) - currentXScale(d.start)) / 2)
-        .attr("y", d => (d.liveLane * 45) + 65);
+        .attr("x", d => currentXScale(d.start) + (currentXScale(d.end) - currentXScale(d.start)) / 2);
 
-    // Linia Astăzi
+    // 5. Linia pentru "Astăzi"
     const todayX = currentXScale(new Date());
     todayLine.attr("x1", todayX).attr("x2", todayX);
     todayText.attr("x", todayX + 5);
-    
-    // Linkuri Genealogice (Dacă există)
+
+    // 6. Liniile de Genealogie (dacă există)
     svg.selectAll(".genealogy-link")
        .attr("d", d => {
            if (!d.source || !d.target) return "";
            const sourceX = currentXScale(d.source.start) + 10;
-           const sourceY = -(d.source.liveLane * 35) - 5;
+           const sourceY = -(d.source.lane * 35) - 5;
            const targetX = currentXScale(d.target.start) + 10;
-           const targetY = -(d.target.liveLane * 35) - 35;
+           const targetY = -(d.target.lane * 35) - 35;
            return `M ${sourceX} ${sourceY} C ${sourceX} ${(sourceY+targetY)/2}, ${targetX} ${(sourceY+targetY)/2}, ${targetX} ${targetY}`;
        });
 }
