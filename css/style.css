@@ -262,8 +262,8 @@ body.dark-mode .event-title {
 
 /* Dark Mode: Acoladă discretă (gri). 
    Textul NU mai are culoare forțată, își păstrează nuanțele unice originale, 
-   dar primește un boost de luminozitate ca să arate bine pe negru */
-body.dark-mode .event-brace-path { stroke: #7f8c8d !important; }
+   dar primește un boost de luminozitate ca să arate bine pe negru 
+/*body.dark-mode .event-brace-path { stroke: #7f8c8d !important; }*/
 body.dark-mode .event-brace-label,
 body.dark-mode .event-title { 
     text-shadow: 0 1px 3px rgba(0,0,0,0.9) !important; 
