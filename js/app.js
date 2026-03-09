@@ -34,6 +34,7 @@ let originalItems = [];
 let currentItems = [];
 let genealogyLinks = [];
 let uniqueCategories = [];
+let collisionTimer;
 
 const pastelPalette = ['#FFB5E8', '#FF9CEE', '#FFCCF9', '#FCC2FF', '#F6A6FF', '#B28DFF', '#C5A3FF', '#D5AAFF', '#ECD4FF', '#FBE4FF', '#DCD3FF', '#A79AFF', '#B5B9FF', '#97A2FF', '#AFCBFF', '#AFF8DB', '#C4FAF8', '#85E3FF', '#ACE7FF', '#6EB5FF', '#BFFCC6', '#DBFFD6', '#F3FFE3', '#E7FFAC', '#FFFFD1', '#FFC9DE', '#FFABAB', '#FFBEBC', '#FFCBC1', '#FFF5BA'];
 const vibrantPalette = ['#2980b9', '#16a085', '#d35400', '#8e44ad', '#27ae60', '#f39c12', '#2c3e50', '#0097e6', '#44bd32', '#e1b12c', '#192a56', '#b33939', '#218c74'];
@@ -340,6 +341,7 @@ function handleZoom(event) {
 }
 
 function updatePositions(transform) {
+    d3.selectAll('.event-label, .event-title, .event-brace-label, .person-label').attr("transform", null);
     if (!xScale) return;
     
     const newXScale = transform.rescaleX(xScale);
@@ -373,6 +375,11 @@ function updatePositions(transform) {
         .attr("y", d => centerY + 37 + (d.lane * 30) - panYBottom)
         .attr("width", function() { return this.parentNode.querySelector('text').getBBox().width + 10; })
         .attr("height", 18).attr("rx", 4);
+
+    clearTimeout(collisionTimer);
+    collisionTimer = setTimeout(() => {
+        resolveTextCollisions();
+    }, 300);
 }
 
 function formatHoverDate(date) {
@@ -684,6 +691,55 @@ function openDetail(item) {
     document.getElementById('drawer').classList.remove('open');
     document.getElementById('main-overlay').classList.add('active');
     setTimeout(() => { document.getElementById('detail-modal').classList.add('active'); }, 50);
+}
+
+function resolveTextCollisions() {
+    const labels = [];
+    
+    // Pasul A: Găsim toate textele de la evenimente de pe ecran
+    d3.selectAll('.event-label, .event-title, .event-brace-label').each(function() {
+        const bbox = this.getBoundingClientRect();
+        // Le adăugăm în listă doar dacă sunt vizibile pe ecran
+        if (bbox.width > 0 && bbox.height > 0) {
+            labels.push({
+                node: this,
+                x: bbox.left,
+                right: bbox.right,
+                y: bbox.top,
+                bottom: bbox.bottom,
+                offsetY: 0
+            });
+        }
+    });
+
+    // Pasul B: Le ordonăm cronologic (de la stânga la dreapta pe ecran)
+    labels.sort((a, b) => a.x - b.x);
+
+    // Pasul C: Detectăm dacă se calcă pe picioare și le coborâm
+    for (let i = 0; i < labels.length; i++) {
+        let current = labels[i];
+        
+        for (let j = 0; j < i; j++) {
+            let prev = labels[j];
+            
+            // Dacă se suprapun orizontal (cu un mic spațiu de siguranță de 5px)
+            if (current.x < prev.right + 5 && current.right + 5 > prev.x) {
+                // Și dacă se suprapun vertical (sunt pe aceeași linie)
+                if (Math.abs((current.y + current.offsetY) - (prev.y + prev.offsetY)) < 15) {
+                    current.offsetY = prev.offsetY + 18; // Împingem textul mai jos cu 18 pixeli
+                }
+            }
+        }
+    }
+
+    // Pasul D: Animația fluidă de așezare pe noile locuri
+    labels.forEach(l => {
+        if (l.offsetY > 0) {
+            d3.select(l.node)
+              .transition().duration(250)
+              .attr("transform", `translate(0, ${l.offsetY})`);
+        }
+    });
 }
 
 window.onload = loadData;
