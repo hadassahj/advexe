@@ -34,7 +34,6 @@ let originalItems = [];
 let currentItems = [];
 let genealogyLinks = [];
 let uniqueCategories = [];
-let collisionTimer;
 
 const pastelPalette = ['#FFB5E8', '#FF9CEE', '#FFCCF9', '#FCC2FF', '#F6A6FF', '#B28DFF', '#C5A3FF', '#D5AAFF', '#ECD4FF', '#FBE4FF', '#DCD3FF', '#A79AFF', '#B5B9FF', '#97A2FF', '#AFCBFF', '#AFF8DB', '#C4FAF8', '#85E3FF', '#ACE7FF', '#6EB5FF', '#BFFCC6', '#DBFFD6', '#F3FFE3', '#E7FFAC', '#FFFFD1', '#FFC9DE', '#FFABAB', '#FFBEBC', '#FFCBC1', '#FFF5BA'];
 const vibrantPalette = ['#2980b9', '#16a085', '#d35400', '#8e44ad', '#27ae60', '#f39c12', '#2c3e50', '#0097e6', '#44bd32', '#e1b12c', '#192a56', '#b33939', '#218c74'];
@@ -341,45 +340,106 @@ function handleZoom(event) {
 }
 
 function updatePositions(transform) {
-    d3.selectAll('.event-label, .event-title, .event-brace-label, .person-label').attr("transform", null);
-    if (!xScale) return;
-    
-    const newXScale = transform.rescaleX(xScale);
-    xAxisGroup.call(d3.axisBottom(newXScale).tickSizeOuter(0));
-    
-    const todayX = newXScale(new Date());
-    todayGroup.attr("transform", `translate(${todayX}, 0)`);
-    todayText.attr("x", 5);
+    const currentXScale = transform.rescaleX(xScale);
 
-    peopleGroup.selectAll(".person-group").attr("transform", d => `translate(${newXScale(d.start)}, ${centerY - 28 - (d.lane * 35) + panYTop})`);
-    peopleGroup.selectAll(".person-bar").attr("width", d => Math.max(5, newXScale(d.end) - newXScale(d.start)));
+    // 1. CALCULĂM BENZILE "LIVE" ÎN PIXELI PENTRU ECRANUL CURENT
+    const peopleLanes = [];
+    const eventLanes = [];
+    
+    // Sortăm cronologic pentru a le așeza corect de la stânga la dreapta
+    const sortedPeople = currentItems.filter(d => d.type === 'people').sort((a, b) => a.start - b.start);
+    const sortedEvents = currentItems.filter(d => d.type === 'events').sort((a, b) => a.start - b.start);
 
-    linksGroup.selectAll(".genealogy-link").attr("d", d => {
-        const parentX = newXScale(d.source.start) + 15; 
-        const parentY = centerY - 28 - (d.source.lane * 35) + 24 + panYTop; 
-        const childX = newXScale(d.target.start);
-        const childY = centerY - 28 - (d.target.lane * 35) + 12 + panYTop; 
-        return `M ${parentX},${parentY} C ${parentX},${childY} ${childX - 20},${childY} ${childX},${childY}`;
+    // Tetris pentru Oameni (Partea de Sus)
+    sortedPeople.forEach(d => {
+        const pxStart = currentXScale(d.start);
+        // Aproximăm lungimea barei + a textului vizibil (aprox 7 px pe literă)
+        const approxTextWidth = (d.name.length + 15) * 6.5; 
+        const pxEnd = Math.max(currentXScale(d.end), pxStart + approxTextWidth);
+        
+        let lane = 0;
+        // Găsim primul nivel liber pe verticală
+        while (peopleLanes[lane] !== undefined && peopleLanes[lane] > pxStart - 10) {
+            lane++;
+        }
+        peopleLanes[lane] = pxEnd + 10;
+        d.liveLane = lane; // Îi atribuim nivelul calculat live
     });
 
-    eventsGroup.selectAll(".event-range-group").attr("transform", d => `translate(${newXScale(d.start)}, ${centerY + 18 + (d.lane * 50) - panYBottom})`);
-    eventsGroup.selectAll(".event-brace-path").attr("d", d => getBracePathDown(Math.max(10, newXScale(d.end) - newXScale(d.start)), 10));
-    eventsGroup.selectAll(".event-brace-label").attr("dx", d => Math.max(10, newXScale(d.end) - newXScale(d.start)) / 2).attr("dy", 35);
+    // Tetris pentru Evenimente (Partea de Jos)
+    sortedEvents.forEach(d => {
+        const pxStart = currentXScale(d.start);
+        const approxTextWidth = (d.name.length + 15) * 6.5;
+        const pxEnd = d.end ? Math.max(currentXScale(d.end), pxStart + approxTextWidth) : pxStart + approxTextWidth;
+        
+        let lane = 0;
+        while (eventLanes[lane] !== undefined && eventLanes[lane] > pxStart - 15) {
+            lane++;
+        }
+        eventLanes[lane] = pxEnd + 15;
+        d.liveLane = lane;
+    });
 
-    eventsGroup.selectAll(".event-point-group").attr("transform", d => `translate(${newXScale(d.start)}, 0)`);
-    eventsGroup.selectAll(".event-line").attr("y1", centerY).attr("y2", d => Math.max(centerY, centerY + 35 + (d.lane * 30) - panYBottom));
-    eventsGroup.selectAll(".event-dot").attr("cy", centerY);
-    eventsGroup.selectAll(".event-label").attr("y", d => centerY + 50 + (d.lane * 30) - panYBottom);
-    eventsGroup.selectAll(".event-label-bg")
-        .attr("x", function() { return -this.parentNode.querySelector('text').getBBox().width/2 - 5; })
-        .attr("y", d => centerY + 37 + (d.lane * 30) - panYBottom)
-        .attr("width", function() { return this.parentNode.querySelector('text').getBBox().width + 10; })
-        .attr("height", 18).attr("rx", 4);
+    // 2. DESENĂM ELEMENTELE PE NOILE LOR POZIȚII
+    
+    // Axa Timpului
+    xAxisGroup.call(xAxis.scale(currentXScale));
 
-    clearTimeout(collisionTimer);
-    collisionTimer = setTimeout(() => {
-        resolveTextCollisions();
-    }, 300);
+    // Oameni
+    svg.selectAll(".person-group")
+        .attr("transform", d => `translate(0, ${-(d.liveLane * 35) - 20})`);
+
+    svg.selectAll(".person-bar")
+        .attr("x", d => currentXScale(d.start))
+        .attr("width", d => Math.max(5, currentXScale(d.end) - currentXScale(d.start)));
+
+    svg.selectAll(".person-label")
+        .attr("x", d => currentXScale(d.start) + 5);
+
+    // Evenimente Punctuale
+    svg.selectAll(".event-dot")
+        .attr("cx", d => currentXScale(d.start))
+        .attr("cy", d => (d.liveLane * 45) + 30);
+
+    svg.selectAll(".event-label")
+        .attr("x", d => currentXScale(d.start))
+        .attr("y", d => (d.liveLane * 45) + 50);
+
+    svg.selectAll(".event-line")
+        .attr("x1", d => currentXScale(d.start))
+        .attr("x2", d => currentXScale(d.start))
+        .attr("y1", 0)
+        .attr("y2", d => (d.liveLane * 45) + 30);
+
+    // Evenimente cu Acoladă (Intervale)
+    svg.selectAll(".event-brace-path")
+        .attr("d", function(d) {
+            const x1 = currentXScale(d.start);
+            const x2 = currentXScale(d.end);
+            const y = (d.liveLane * 45) + 30;
+            const midX = (x1 + x2) / 2;
+            return `M ${x1} ${y} Q ${x1} ${y+10} ${x1+10} ${y+10} L ${midX-10} ${y+10} Q ${midX} ${y+10} ${midX} ${y+20} Q ${midX} ${y+10} ${midX+10} ${y+10} L ${x2-10} ${y+10} Q ${x2} ${y+10} ${x2} ${y}`;
+        });
+
+    svg.selectAll(".event-brace-label")
+        .attr("x", d => currentXScale(d.start) + (currentXScale(d.end) - currentXScale(d.start)) / 2)
+        .attr("y", d => (d.liveLane * 45) + 65);
+
+    // Linia Astăzi
+    const todayX = currentXScale(new Date());
+    todayLine.attr("x1", todayX).attr("x2", todayX);
+    todayText.attr("x", todayX + 5);
+    
+    // Linkuri Genealogice (Dacă există)
+    svg.selectAll(".genealogy-link")
+       .attr("d", d => {
+           if (!d.source || !d.target) return "";
+           const sourceX = currentXScale(d.source.start) + 10;
+           const sourceY = -(d.source.liveLane * 35) - 5;
+           const targetX = currentXScale(d.target.start) + 10;
+           const targetY = -(d.target.liveLane * 35) - 35;
+           return `M ${sourceX} ${sourceY} C ${sourceX} ${(sourceY+targetY)/2}, ${targetX} ${(sourceY+targetY)/2}, ${targetX} ${targetY}`;
+       });
 }
 
 function formatHoverDate(date) {
@@ -693,53 +753,6 @@ function openDetail(item) {
     setTimeout(() => { document.getElementById('detail-modal').classList.add('active'); }, 50);
 }
 
-function resolveTextCollisions() {
-    const labels = [];
-    
-    // Pasul A: Găsim toate textele de la evenimente de pe ecran
-    d3.selectAll('.event-label, .event-title, .event-brace-label').each(function() {
-        const bbox = this.getBoundingClientRect();
-        // Le adăugăm în listă doar dacă sunt vizibile pe ecran
-        if (bbox.width > 0 && bbox.height > 0) {
-            labels.push({
-                node: this,
-                x: bbox.left,
-                right: bbox.right,
-                y: bbox.top,
-                bottom: bbox.bottom,
-                offsetY: 0
-            });
-        }
-    });
 
-    // Pasul B: Le ordonăm cronologic (de la stânga la dreapta pe ecran)
-    labels.sort((a, b) => a.x - b.x);
-
-    // Pasul C: Detectăm dacă se calcă pe picioare și le coborâm
-    for (let i = 0; i < labels.length; i++) {
-        let current = labels[i];
-        
-        for (let j = 0; j < i; j++) {
-            let prev = labels[j];
-            
-            // Dacă se suprapun orizontal (cu un mic spațiu de siguranță de 5px)
-            if (current.x < prev.right + 5 && current.right + 5 > prev.x) {
-                // Și dacă se suprapun vertical (sunt pe aceeași linie)
-                if (Math.abs((current.y + current.offsetY) - (prev.y + prev.offsetY)) < 15) {
-                    current.offsetY = prev.offsetY + 18; // Împingem textul mai jos cu 18 pixeli
-                }
-            }
-        }
-    }
-
-    // Pasul D: Animația fluidă de așezare pe noile locuri
-    labels.forEach(l => {
-        if (l.offsetY > 0) {
-            d3.select(l.node)
-              .transition().duration(250)
-              .attr("transform", `translate(0, ${l.offsetY})`);
-        }
-    });
-}
 
 window.onload = loadData;
