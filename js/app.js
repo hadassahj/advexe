@@ -283,7 +283,7 @@ function renderTimeline(data) {
     p_enter.filter(d => d.image && d.image.includes('http'))
            .append("image").attr("href", d => d.image).attr("xlink:href", d => d.image)
            .attr("x", 5).attr("y", 3).attr("width", 18).attr("height", 18)
-           .attr("preserveAspectRatio", "xMidYMid slice").attr("clip-path", "url(#avatar-clip)")
+           .attr("preserveAspectRatio", "xMidYMin slice").attr("clip-path", "url(#avatar-clip)")
            .attr("crossorigin", "anonymous");
 
     p_enter.append("text").attr("class", "person-label").attr("dy", 16)
@@ -401,7 +401,7 @@ function updatePositions(transform) {
             return Math.max(10, visibleCenter - startX);
         })
         .attr("dy", 35);
-        
+
     eventsGroup.selectAll(".event-point-group").attr("transform", d => `translate(${newXScale(d.start)}, 0)`);
     eventsGroup.selectAll(".event-line").attr("y1", centerY).attr("y2", d => Math.max(centerY, centerY + 35 + (d.lane * 30) - panYBottom));
     eventsGroup.selectAll(".event-dot").attr("cy", centerY);
@@ -673,9 +673,21 @@ function openDetail(item) {
     let ageStr = item.ageText ? ` • ${item.ageText}` : '';
     document.getElementById('modal-date').innerText = item.displayDate + ageStr;
     
+    // const imgBox = document.getElementById('modal-img-box');
+    // if(item.image && item.image.includes('http')) {
+    //     document.getElementById('modal-img').src = item.image;
+    //     imgBox.style.display = 'block';
+    // } else { imgBox.style.display = 'none'; }
     const imgBox = document.getElementById('modal-img-box');
+    const modalImg = document.getElementById('modal-img'); // Luăm referința imaginii
+
     if(item.image && item.image.includes('http')) {
-        document.getElementById('modal-img').src = item.image;
+        modalImg.src = item.image;
+        
+        // Dacă elementul este o persoană, aliniem poza la marginea de sus (top)
+        // Dacă este un eveniment, o lăsăm centrată (center) ca până acum
+        modalImg.style.objectPosition = item.type === 'people' ? 'top' : 'center';
+        
         imgBox.style.display = 'block';
     } else { imgBox.style.display = 'none'; }
     
