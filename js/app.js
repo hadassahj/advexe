@@ -352,6 +352,26 @@ function updatePositions(transform) {
     peopleGroup.selectAll(".person-group").attr("transform", d => `translate(${newXScale(d.start)}, ${centerY - 28 - (d.lane * 35) + panYTop})`);
     peopleGroup.selectAll(".person-bar").attr("width", d => Math.max(5, newXScale(d.end) - newXScale(d.start)));
 
+    // MAGIC PENTRU "STICKY LABELS" (Text și poze mereu vizibile la zoom)
+    peopleGroup.selectAll(".person-label, image")
+        .attr("transform", d => {
+            const startX = newXScale(d.start);
+            const endX = newXScale(d.end);
+            const barWidth = endX - startX;
+            let shiftX = 0;
+            
+            // Dacă începutul barei a ieșit din ecran (stânga), dar capătul e încă vizibil
+            if (startX < 0 && endX > 20) {
+                shiftX = Math.abs(startX) + 10; // Împingem textul spre dreapta cu 10px margine
+                
+                // Ne asigurăm că textul nu „fuge” în afara propriei bare
+                const maxShift = Math.max(0, barWidth - 40); 
+                shiftX = Math.min(shiftX, maxShift);
+            }
+            // Aplicăm mutarea dinamică
+            return `translate(${shiftX}, 0)`;
+        });
+
     linksGroup.selectAll(".genealogy-link").attr("d", d => {
         const parentX = newXScale(d.source.start) + 15; 
         const parentY = centerY - 28 - (d.source.lane * 35) + 24 + panYTop; 
@@ -362,8 +382,26 @@ function updatePositions(transform) {
 
     eventsGroup.selectAll(".event-range-group").attr("transform", d => `translate(${newXScale(d.start)}, ${centerY + 18 + (d.lane * 50) - panYBottom})`);
     eventsGroup.selectAll(".event-brace-path").attr("d", d => getBracePathDown(Math.max(10, newXScale(d.end) - newXScale(d.start)), 10));
-    eventsGroup.selectAll(".event-brace-label").attr("dx", d => Math.max(10, newXScale(d.end) - newXScale(d.start)) / 2).attr("dy", 35);
+    // eventsGroup.selectAll(".event-brace-label").attr("dx", d => Math.max(10, newXScale(d.end) - newXScale(d.start)) / 2).attr("dy", 35);
 
+    // MAGIC PENTRU "STICKY LABELS" (Evenimente cu Acoladă)
+    eventsGroup.selectAll(".event-brace-label")
+        .attr("dx", d => {
+            const startX = newXScale(d.start);
+            const endX = newXScale(d.end);
+            
+            // Calculăm cât din eveniment se vede efectiv pe ecran (între marginea din stânga = 0, și dreapta = width)
+            const visibleStart = Math.max(0, startX);
+            const visibleEnd = Math.min(width, endX);
+            
+            // Găsim centrul perfect al bucății vizibile
+            const visibleCenter = visibleStart + (visibleEnd - visibleStart) / 2;
+            
+            // Mutăm textul exact pe acel centru, ca să te urmeze la scroll
+            return Math.max(10, visibleCenter - startX);
+        })
+        .attr("dy", 35);
+        
     eventsGroup.selectAll(".event-point-group").attr("transform", d => `translate(${newXScale(d.start)}, 0)`);
     eventsGroup.selectAll(".event-line").attr("y1", centerY).attr("y2", d => Math.max(centerY, centerY + 35 + (d.lane * 30) - panYBottom));
     eventsGroup.selectAll(".event-dot").attr("cy", centerY);
