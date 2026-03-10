@@ -125,7 +125,7 @@ async function loadData() {
             loaded.push(...parseRows(res.data.valueRanges[1].values, 'events'));
         }
         originalItems = loaded;
-        uniqueCategories = [...new Set(originalItems.map(d => d.category))].filter(c => c !== "");
+       uniqueCategories = [...new Set(originalItems.flatMap(d => d.categories))].filter(c => c !== "");
         buildCategoryFilters();
         applyFilters();
     } catch (e) { console.error(e); }
@@ -175,7 +175,7 @@ function parseRows(rows, type) {
         return {
             id: type + '_' + (row[0] || i), rawId: row[0] || String(i), type: type, 
             title: row[1], start: start, end: end, ageText: ageText,
-            category: row[4] ? row[4].trim() : "Fără Categorie", 
+            categories: row[4] ? row[4].split(',').map(c => c.trim()) : ["Fără Categorie"], 
             description: row[5] || "Nicio descriere disponibilă.", 
             parents: type === 'people' ? row[6] : null, 
             image: type === 'people' ? row[7] : row[6], 
@@ -623,7 +623,7 @@ function applyFilters() {
     currentItems = originalItems.filter(item => {
         const matchText = item.title.toLowerCase().includes(query) || item.description.toLowerCase().includes(query);
         const matchMainType = (item.type === 'people' && showP) || (item.type === 'events' && showE);
-        const matchCat = item.category === "Fără Categorie" || checkedCats.includes(item.category);
+        const matchCat = item.categories.some(cat => checkedCats.includes(cat));
         return matchText && matchMainType && matchCat;
     });
     
@@ -663,10 +663,18 @@ function closeAll() {
 
 function openDetail(item) {
     const badge = document.getElementById('modal-badge');
-    badge.innerText = item.category !== "Fără Categorie" ? item.category : (item.type === 'people' ? 'Persoană' : 'Eveniment');
+
+    // Verificăm dacă avem categorii reale (diferite de cea default)
+    const hasRealCategories = item.categories.length > 0 && item.categories[0] !== "Fără Categorie";
+
+    // Dacă avem categorii, le unim cu un punct. Dacă nu, punem tipul (Persoană/Eveniment)
+    badge.innerText = hasRealCategories 
+        ? item.categories.join(' • ') 
+        : (item.type === 'people' ? 'Persoană' : 'Eveniment');
+
+    // Culorile rămân neschimbate, sunt foarte bune
     badge.style.backgroundColor = item.type === 'people' ? '#e8f8f5' : '#ebf5fb';
     badge.style.color = item.type === 'people' ? '#27ae60' : '#2980b9';
-
     document.getElementById('modal-title').innerText = item.title;
     document.getElementById('modal-desc').innerText = item.description; 
     
