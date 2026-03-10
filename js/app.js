@@ -231,11 +231,13 @@ function calculateLanes(data) {
 
         // Stabilim o "zonă de ocupare" temporală
         // Dacă e punctual, rezervăm toată luna curentă pentru a evita suprapunerea textului
+        // Dacă e punct, rezervăm 4 luni (getMonth() + 4)
+        // Dacă e perioadă (acoladă), poți alege să lași e.end sau să adaugi și acolo un buffer
         let busyUntil = isPoint 
-            ? new Date(e.start.getFullYear(), e.start.getMonth() + 1, 1) 
-            : e.end;
+            ? new Date(e.start.getFullYear(), e.start.getMonth() + 4, e.start.getDate()) 
+            : new Date(e.end.getFullYear(), e.end.getMonth() + 4, e.end.getDate()); // Am adăugat buffer și la perioade pentru siguranță
 
-        // Verificăm dacă banda este ocupată
+        // Verificăm coliziunea pe rânduri
         while (eLanes[lane] && eLanes[lane] > e.start) {
             lane++;
         }
