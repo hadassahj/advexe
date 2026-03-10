@@ -58,8 +58,23 @@ body, html { margin: 0; padding: 0; height: 100%; font-family: 'Inter', sans-ser
 .custom-modal:not(.active) { display: none !important; }
 .custom-modal.active { display: flex !important; opacity: 1; transform: translate(-50%, -50%); }
 
-.modal-img-container { width: 100%; height: 200px; background: #f5f5f5; display: none; position: relative; flex-shrink: 0; }
-.modal-img-container img { width: 100%; height: 100%; object-fit: cover; }
+/* .modal-img-container { width: 100%; height: 200px; background: #f5f5f5; display: none; position: relative; flex-shrink: 0; }
+.modal-img-container img { width: 100%; height: 100%; object-fit: cover; } */
+.modal-img-container {
+    width: 100%;
+    height: 320px; /* Am mărit-o de la 200px ca să fie mai pătrată */
+    background: #f5f5f5;
+    display: none;
+    position: relative;
+    flex-shrink: 0;
+}
+
+/* Ne asigurăm că imaginea ocupă tot spațiul fără să se lățească ciudat */
+.modal-img-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; 
+}
 .modal-body { padding: 25px; overflow-y: auto; }
 #modal-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; margin-bottom: 10px; }
 #modal-title { margin: 0 0 5px 0; font-size: 1.4rem; }

@@ -686,7 +686,7 @@ function openDetail(item) {
         
         // Dacă elementul este o persoană, aliniem poza la marginea de sus (top)
         // Dacă este un eveniment, o lăsăm centrată (center) ca până acum
-        modalImg.style.objectPosition = item.type === 'people' ? 'top' : 'center';
+        modalImg.style.objectPosition = item.type === 'people' ? 'center 15%' : 'center';
         
         imgBox.style.display = 'block';
     } else { imgBox.style.display = 'none'; }
