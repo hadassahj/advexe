@@ -175,7 +175,11 @@ function parseRows(rows, type) {
         return {
             id: type + '_' + (row[0] || i), rawId: row[0] || String(i), type: type, 
             title: row[1], start: start, end: end, ageText: ageText,
-            categories: row[4] ? row[4].split(',').map(c => c.trim()) : ["Fără Categorie"], 
+            categories: row[4] 
+                ? row[4].split(/\s*,\s*/) // Separă prin virgulă și elimină spațiile de lângă ea
+                        .map(c => c.trim())
+                        .filter(c => c !== "") 
+                : ["Fără Categorie"],
             description: row[5] || "Nicio descriere disponibilă.", 
             parents: type === 'people' ? row[6] : null, 
             image: type === 'people' ? row[7] : row[6], 
