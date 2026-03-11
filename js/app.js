@@ -706,9 +706,6 @@ function closeAll() {
 }
 
 function openDetail(item) {
-    
-    if (svgElement) svgElement.style.pointerEvents = 'none';
-
     const badge = document.getElementById('modal-badge');
 
     // Verificăm dacă avem categorii reale (diferite de cea default)
