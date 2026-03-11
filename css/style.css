@@ -391,23 +391,24 @@ body.dark-mode .export-option-btn p {
         height: 42px !important;
     }
 
-    /* Forțăm fereastra să aibă limită clară ca să permită scroll-ul */
+    
+    /* 1. Blocăm dimensiunea ferestrei fix la 85% din ecran */
     .custom-modal {
-        height: 85vh !important; 
+        height: 85vh !important;
+        max-height: 85vh !important;
     }
     
-    /* Micșorăm poza pe telefon ca să lăsăm loc fizic pentru text */
+    /* 2. Facem poza mai mică pe telefon ca să avem loc de text */
     .modal-img-container {
-        height: 180px !important; 
+        height: 180px !important;
     }
     
-    /* Obligăm zona de text să facă scroll nativ în spațiul rămas */
+    /* 3. Anulăm Flexbox-ul și îi dăm textului exact restul de spațiu matematic (85vh - 180px) */
     .modal-body {
-        padding: 25px;
-        overflow-y: auto !important; 
-        flex: 1; 
-        min-height: 0; /* Adaug-o fix aici */
-        -webkit-overflow-scrolling: touch !important; /* Esențial pentru iOS */
+        flex: none !important; 
+        height: calc(85vh - 180px) !important; 
+        overflow-y: scroll !important;
+        -webkit-overflow-scrolling: touch !important;
     }
 }
 
