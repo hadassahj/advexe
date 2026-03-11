@@ -398,10 +398,30 @@ body.dark-mode .export-option-btn p {
         overflow: visible;
     }
 
+    .custom-modal.active {
+        transform: none !important;
+        top: 5vh !important;
+        left: 5% !important;
+        width: 90% !important;
+        height: 85vh !important;
+    }
+
+    .modal-img-container {
+        height: 180px !important;
+    }
+
+    /* Wrapper scroll mobil iOS */
+    .modal-body-wrapper {
+        height: calc(85vh - 180px); /* înălțime disponibilă pentru text */
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch; /* scroll inertial iOS */
+        touch-action: pan-y; /* permite swipe vertical */
+    }
+
+    /* Body intern rămâne flexibil */
     .modal-body {
-        overflow-y: auto !important;
-        -webkit-overflow-scrolling: touch;
-        touch-action: pan-y;
+        height: auto;
+        flex: none !important;
     }
 }
 
