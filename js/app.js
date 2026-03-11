@@ -319,7 +319,7 @@ function renderTimeline(data) {
                 .style("opacity", 1);
         });
 
-    p_enter.append("rect").attr("class", "person-bar").attr("height", 24).attr("fill", d => getColorForId(d.rawId, false)); 
+    p_enter.append("rect").attr("class", "person-bar").attr("height", 24).attr("fill", d => getColorForId(d.rawId, false)).attr("rx", 6).attr("ry", 6);
     
     p_enter.filter(d => d.image && d.image.includes('http'))
            .append("image").attr("href", d => d.image).attr("xlink:href", d => d.image)
@@ -384,8 +384,9 @@ function updatePositions(transform) {
     if (!xScale) return;
     
     const newXScale = transform.rescaleX(xScale);
-    xAxisGroup.call(d3.axisBottom(newXScale).tickSizeOuter(0));
-    
+    // Afișează doar 4 repere pe mobil, 10 pe desktop
+    xAxisGroup.call(d3.axisBottom(newXScale).ticks(width < 600 ? 4 : 10).tickSizeOuter(0));
+
     const todayX = newXScale(new Date());
     todayGroup.attr("transform", `translate(${todayX}, 0)`);
     todayText.attr("x", 5);

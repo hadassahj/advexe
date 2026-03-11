@@ -76,9 +76,10 @@ body, html { margin: 0; padding: 0; height: 100%; font-family: 'Inter', sans-ser
 }
 .modal-body {
     padding: 25px;
+    max-height: 50vh; /* Asta obligă textul lung să facă scroll în interiorul limitei */
     overflow-y: auto !important; 
-    flex: 1; 
-    -webkit-overflow-scrolling: touch; 
+    -webkit-overflow-scrolling: touch;
+    /* flex: 1 */
 }
 
 body.modal-open {
@@ -242,7 +243,8 @@ body.dark-mode button:hover {
 body.dark-mode .person-bar { 
     /* Aici întunecăm pastelurile și le facem mai bogate */
     filter: brightness(0.4) saturate(2);
-    stroke: rgba(255,255,255,0.15) !important; 
+    -webkit-filter: brightness(0.4) saturate(2); /* Magia pentru Safari/iOS */
+    stroke: rgba(255,255,255,0.15) !important;
 }
 
 /* Textul de pe bare devine alb și primește o umbră fină pentru contrast maxim */
@@ -274,14 +276,17 @@ body.dark-mode .event-title {
 
 /* 1. Rotunjim butonul de temă ca să se asorteze cu celelalte */
 #theme-toggle {
-    border-radius: 25px !important;
-    width: 40px;
-    height: 40px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     padding: 0 !important;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    font-size: 1.2rem;
+    line-height: 1;
+    border: 1px solid #eee;
+    background: white;
 }
 
 /* 2. Acoladele și textele lor */
@@ -342,4 +347,11 @@ body.dark-mode .export-option-btn h4 {
 
 body.dark-mode .export-option-btn p {
     color: #b0bec5 !important;
+}
+
+/* Ascunde tooltip-ul la hover pe ecrane mici (telefoane) */
+@media (max-width: 768px) {
+    #hover-tooltip {
+        display: none !important;
+    }
 }
