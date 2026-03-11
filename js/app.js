@@ -794,3 +794,19 @@ function openDetail(item) {
 }
 
 window.onload = loadData;
+// Izolăm fereastra de text pentru ca D3.js să nu mai fure scroll-ul pe mobil
+const detailModal = document.getElementById('detail-modal');
+
+if (detailModal) {
+    detailModal.addEventListener('touchstart', function(e) {
+        e.stopPropagation();
+    }, { passive: true });
+
+    detailModal.addEventListener('touchmove', function(e) {
+        e.stopPropagation();
+    }, { passive: true });
+
+    detailModal.addEventListener('wheel', function(e) {
+        e.stopPropagation();
+    }, { passive: true });
+}
