@@ -83,6 +83,18 @@ body, html { margin: 0; padding: 0; height: 100%; font-family: 'Inter', sans-ser
     flex: 1; /* Forțează acest div să ocupe tot spațiul rămas și să devină scrollabil */
     -webkit-overflow-scrolling: touch; /* Face scroll-ul fluid pe iPhone/Safari */
 }
+
+/* Când modalul este activ, dezactivăm interacțiunea cu restul site-ului sub el */
+body.modal-open {
+    overflow: hidden;
+    touch-action: none;
+}
+
+.custom-modal.active {
+    touch-action: pan-y; /* Permite scroll-ul sus-jos în interiorul ferestrei */
+    pointer-events: auto;
+}
+
 #modal-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; margin-bottom: 10px; }
 #modal-title { margin: 0 0 5px 0; font-size: 1.4rem; }
 #modal-date { margin: 0 0 15px 0; font-size: 0.85rem; color: #7f8c8d; }
