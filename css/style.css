@@ -54,6 +54,8 @@ body, html { margin: 0; padding: 0; height: 100%; font-family: 'Inter', sans-ser
 .custom-modal {
     position: fixed; top: 50%; left: 50%; transform: translate(-50%, -45%); width: 90%; max-width: 450px; background: white; z-index: 102; 
     border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); display: none; opacity: 0; transition: 0.3s; overflow: hidden; max-height: 85vh; flex-direction: column;
+    display: none; 
+    flex-direction: column; /* Forțăm așezarea pe verticală */
 }
 .custom-modal:not(.active) { display: none !important; }
 .custom-modal.active { display: flex !important; opacity: 1; transform: translate(-50%, -50%); }
@@ -75,7 +77,12 @@ body, html { margin: 0; padding: 0; height: 100%; font-family: 'Inter', sans-ser
     height: 100%;
     object-fit: cover; 
 }
-.modal-body { padding: 25px; overflow-y: auto; }
+.modal-body {
+    padding: 25px;
+    overflow-y: auto !important; /* Activăm scroll-ul vertical */
+    flex: 1; /* Forțează acest div să ocupe tot spațiul rămas și să devină scrollabil */
+    -webkit-overflow-scrolling: touch; /* Face scroll-ul fluid pe iPhone/Safari */
+}
 #modal-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; margin-bottom: 10px; }
 #modal-title { margin: 0 0 5px 0; font-size: 1.4rem; }
 #modal-date { margin: 0 0 15px 0; font-size: 0.85rem; color: #7f8c8d; }
