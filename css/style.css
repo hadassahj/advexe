@@ -60,7 +60,7 @@ body, html {
 
 /* Modale */
 .custom-modal {
-    overflow: visible;
+    overflow: hidden;
     position: fixed; top: 50%; left: 50%; transform: translate(-50%, -45%); width: 90%; max-width: 450px; background: white; z-index: 102; 
     border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); display: none; opacity: 0; transition: 0.3s; max-height: 85vh; flex-direction: column;
     display: none; 
@@ -394,27 +394,14 @@ body.dark-mode .export-option-btn p {
         width: 42px !important;
         height: 42px !important;
     }
-    
-    .custom-modal.active {
-        transform: none !important;
-        top: 5vh !important;
-        left: 5% !important;
-        width: 90% !important;
-        height: 85vh !important;
+    .custom-modal {
+        overflow: visible;
     }
-    
-    /* 2. Poza rămâne mică */
-    .modal-img-container {
-        height: 180px !important;
-    }
-    
-    /* 3. Textul are spațiu calculat matematic și devine scrollabil */
+
     .modal-body {
-        flex: 1;
-        overflow-y: auto;
-        height: calc(85vh - 180px) !important; 
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
         touch-action: pan-y;
-        -webkit-overflow-scrolling: touch !important;
     }
 }
 
