@@ -403,17 +403,3 @@ body.dark-mode .export-option-btn p {
 }
 
   
-.modal-body {
-    flex: 1 1 auto !important;
-    height: 0px !important; /* Trucul suprem: forțează Safari să calculeze corect zona de scroll */
-    min-height: 100px !important; 
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch !important; /* Activează inerția pe iOS */
-    overscroll-behavior: contain !important; /* Previne scroll-ul hărții din spate */
-    touch-action: pan-y !important; /* Permite strict glisarea sus-jos */
-}
-
-/* Ne asigurăm că fereastra însăși poate primi atingeri */
-.custom-modal.active {
-    pointer-events: auto !important;
-}

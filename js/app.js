@@ -698,6 +698,11 @@ function closeIframe() {
 function openDrawer() { document.getElementById('main-overlay').classList.add('active'); document.getElementById('drawer').classList.add('open'); }
 
 function closeAll() { 
+    // 2. Redăm hărții capacitatea de a simți atingerile
+    document.body.style.overflow = '';
+    const svgElement = document.querySelector('svg');
+    if (svgElement) svgElement.style.pointerEvents = 'auto';
+
     document.getElementById('main-overlay').classList.remove('active'); 
     document.getElementById('drawer').classList.remove('open'); 
     document.getElementById('detail-modal').classList.remove('active'); 
@@ -706,6 +711,11 @@ function closeAll() {
 }
 
 function openDetail(item) {
+    // 1. Oprim harta să mai fure atingerile degetului (esențial pentru scroll pe mobil)
+    document.body.style.overflow = 'hidden';
+    const svgElement = document.querySelector('svg');
+    if (svgElement) svgElement.style.pointerEvents = 'none';
+
     const badge = document.getElementById('modal-badge');
 
     // Verificăm dacă avem categorii reale (diferite de cea default)
@@ -725,11 +735,6 @@ function openDetail(item) {
     let ageStr = item.ageText ? ` • ${item.ageText}` : '';
     document.getElementById('modal-date').innerText = item.displayDate + ageStr;
     
-    // const imgBox = document.getElementById('modal-img-box');
-    // if(item.image && item.image.includes('http')) {
-    //     document.getElementById('modal-img').src = item.image;
-    //     imgBox.style.display = 'block';
-    // } else { imgBox.style.display = 'none'; }
     const imgBox = document.getElementById('modal-img-box');
     const modalImg = document.getElementById('modal-img'); // Luăm referința imaginii
 
