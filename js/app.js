@@ -697,6 +697,7 @@ function closeIframe() {
 function openDrawer() { document.getElementById('main-overlay').classList.add('active'); document.getElementById('drawer').classList.add('open'); }
 
 function closeAll() { 
+    document.body.style.overflow = ''; // Redă scroll-ul hărții
     document.getElementById('main-overlay').classList.remove('active'); 
     document.getElementById('drawer').classList.remove('open'); 
     document.getElementById('detail-modal').classList.remove('active'); 
@@ -785,6 +786,12 @@ function openDetail(item) {
     document.getElementById('drawer').classList.remove('open');
     document.getElementById('main-overlay').classList.add('active');
     setTimeout(() => { document.getElementById('detail-modal').classList.add('active'); }, 50);
+
+    // OPREȘTE hărțile din spate să mai asculte de deget când modalul e deschis
+    document.body.style.overflow = 'hidden'; 
+    
+    // Deschide modalul
+    document.getElementById('detail-modal').classList.add('active');
 }
 
 window.onload = loadData;
