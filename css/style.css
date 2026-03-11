@@ -79,7 +79,7 @@ body, html { margin: 0; padding: 0; height: 100%; font-family: 'Inter', sans-ser
     max-height: 50vh; /* Asta obligă textul lung să facă scroll în interiorul limitei */
     overflow-y: auto !important; 
     -webkit-overflow-scrolling: touch;
-    /* flex: 1 */
+    /* flex: 1;  */
 }
 
 body.modal-open {
@@ -87,7 +87,7 @@ body.modal-open {
 }
 
 .custom-modal.active {
-    touch-action: pan-y; 
+    /* touch-action: pan-y;  */
     pointer-events: auto;
 }
 
