@@ -355,6 +355,13 @@ body.dark-mode .export-option-btn p {
     #hover-tooltip {
         display: none !important;
     }
+    .modal-body {
+    padding: 25px;
+    overflow-y: auto !important; 
+    flex: 1; 
+    -webkit-overflow-scrolling: touch; 
+    min-height: 0; /* Adaug-o fix aici */
+}
 }
 
 /* --- ADAPTĂRI STRICT PENTRU TELEFON --- */
@@ -396,8 +403,10 @@ body.dark-mode .export-option-btn p {
     
     /* Obligăm zona de text să facă scroll nativ în spațiul rămas */
     .modal-body {
-        height: calc(100% - 180px); 
-        overflow-y: scroll !important;
+        padding: 25px;
+        overflow-y: auto !important; 
+        flex: 1; 
+        min-height: 0; /* Adaug-o fix aici */
         -webkit-overflow-scrolling: touch !important; /* Esențial pentru iOS */
     }
 }
