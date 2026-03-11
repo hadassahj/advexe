@@ -698,27 +698,15 @@ function closeIframe() {
 function openDrawer() { document.getElementById('main-overlay').classList.add('active'); document.getElementById('drawer').classList.add('open'); }
 
 function closeAll() { 
-    // redăm scrollul paginii
-    document.body.classList.remove('modal-open');
-
-    // redăm hărții capacitatea de a simți atingerile
-    const svgElement = document.querySelector('svg');
-    if (svgElement) svgElement.style.pointerEvents = 'auto';
-
     document.getElementById('main-overlay').classList.remove('active'); 
     document.getElementById('drawer').classList.remove('open'); 
     document.getElementById('detail-modal').classList.remove('active'); 
     document.getElementById('export-modal').classList.remove('active'); 
-    
     closeIframe(); 
 }
 
 function openDetail(item) {
-    // 1. Oprim harta să mai fure atingerile degetului (esențial pentru scroll pe mobil)
-    document.body.classList.add('modal-open');
-    const svgElement = document.querySelector('svg');
-    const modalWrapper = document.querySelector('.modal-body-wrapper');
-    modalWrapper.scrollTop = 0; // resetează scrollul
+    
     if (svgElement) svgElement.style.pointerEvents = 'none';
 
     const badge = document.getElementById('modal-badge');
