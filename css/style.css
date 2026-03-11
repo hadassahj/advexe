@@ -60,11 +60,22 @@ body, html {
 
 /* Modale */
 .custom-modal {
-    overflow: hidden;
-    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -45%); width: 90%; max-width: 450px; background: white; z-index: 102; 
-    border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); display: none; opacity: 0; transition: 0.3s; max-height: 85vh; flex-direction: column;
-    display: none; 
-    flex-direction: column; 
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -45%);
+    width: 90%;
+    max-width: 450px;
+    background: white;
+    z-index: 102;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    display: none;
+    opacity: 0;
+    transition: 0.3s;
+    overflow: hidden; /* important: desktop ok */
+    max-height: 85vh;
+    flex-direction: column;
 }
 .custom-modal:not(.active) { display: none !important; }
 .custom-modal.active { display: flex !important; opacity: 1; transform: translate(-50%, -50%); }
@@ -85,11 +96,9 @@ body, html {
 }
 .modal-body {
     padding: 25px;
-    max-height: 50vh; /* Asta obligă textul lung să facă scroll în interiorul limitei */
-    overflow-y: auto !important; 
-    touch-action: pan-y;
-    -webkit-overflow-scrolling: touch;
-    /* flex: 1;  */
+    max-height: 50vh; /* limitează înălțimea */
+    overflow-y: auto !important; /* scroll pe desktop */
+    -webkit-overflow-scrolling: touch; /* nu stricăm desktopul */
 }
 
 body.modal-open {
@@ -394,35 +403,7 @@ body.dark-mode .export-option-btn p {
         width: 42px !important;
         height: 42px !important;
     }
-    .custom-modal {
-        overflow: visible;
-    }
-
-    .custom-modal.active {
-        transform: none !important;
-        top: 5vh !important;
-        left: 5% !important;
-        width: 90% !important;
-        height: 85vh !important;
-    }
-
-    .modal-img-container {
-        height: 180px !important;
-    }
-
-    /* Wrapper scroll mobil iOS */
-    .modal-body-wrapper {
-        height: calc(85vh - 180px); /* înălțime disponibilă pentru text */
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch; /* scroll inertial iOS */
-        touch-action: pan-y; /* permite swipe vertical */
-    }
-
-    /* Body intern rămâne flexibil */
-    .modal-body {
-        height: auto;
-        flex: none !important;
-    }
+    
 }
 
   
