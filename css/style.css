@@ -83,8 +83,7 @@ body, html { margin: 0; padding: 0; height: 100%; font-family: 'Inter', sans-ser
 }
 
 body.modal-open {
-    overflow: hidden;
-    touch-action: none;
+    overflow: hidden !important;
 }
 
 .custom-modal.active {
@@ -241,10 +240,12 @@ body.dark-mode button:hover {
 
 /* 3. Magia pentru Barele Oamenilor (Nuanțate și mai închise) */
 body.dark-mode .person-bar { 
-    /* Aici întunecăm pastelurile și le facem mai bogate */
-    filter: brightness(0.4) saturate(2);
-    -webkit-filter: brightness(0.4) saturate(2); /* Magia pentru Safari/iOS */
-    stroke: rgba(255,255,255,0.15) !important;
+    filter: none !important;
+    -webkit-filter: none !important;
+    
+    /* Pe fundal negru, opacitatea le face perfect mate și închise */
+    opacity: 0.65 !important;
+    stroke: rgba(255,255,255,0.2) !important;
 }
 
 /* Textul de pe bare devine alb și primește o umbră fină pentru contrast maxim */
@@ -353,5 +354,50 @@ body.dark-mode .export-option-btn p {
 @media (max-width: 768px) {
     #hover-tooltip {
         display: none !important;
+    }
+}
+
+/* --- ADAPTĂRI STRICT PENTRU TELEFON --- */
+@media (max-width: 600px) {
+    /* Centrarea și alinierea butoanelor de jos */
+    .bottom-actions {
+        right: 0 !important;
+        left: 0 !important;
+        bottom: 15px !important;
+        justify-content: center !important;
+        width: 100% !important;
+        padding: 0 10px;
+        box-sizing: border-box;
+        gap: 8px !important;
+    }
+    
+    .action-btn {
+        padding: 10px 12px !important;
+        font-size: 11px !important;
+        flex: 1; /* Le obligă să nu depășească lățimea ecranului */
+        justify-content: center;
+    }
+    
+    #theme-toggle {
+        flex-shrink: 0; /* Nu lăsăm butonul rotund să se turtească */
+        width: 42px !important;
+        height: 42px !important;
+    }
+
+    /* Forțăm fereastra să aibă limită clară ca să permită scroll-ul */
+    .custom-modal {
+        height: 85vh !important; 
+    }
+    
+    /* Micșorăm poza pe telefon ca să lăsăm loc fizic pentru text */
+    .modal-img-container {
+        height: 180px !important; 
+    }
+    
+    /* Obligăm zona de text să facă scroll nativ în spațiul rămas */
+    .modal-body {
+        height: calc(100% - 180px); 
+        overflow-y: scroll !important;
+        -webkit-overflow-scrolling: touch !important; /* Esențial pentru iOS */
     }
 }
