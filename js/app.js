@@ -698,8 +698,10 @@ function closeIframe() {
 function openDrawer() { document.getElementById('main-overlay').classList.add('active'); document.getElementById('drawer').classList.add('open'); }
 
 function closeAll() { 
-    // 2. Redăm hărții capacitatea de a simți atingerile
-    document.body.style.overflow = '';
+    // redăm scrollul paginii
+    document.body.classList.remove('modal-open');
+
+    // redăm hărții capacitatea de a simți atingerile
     const svgElement = document.querySelector('svg');
     if (svgElement) svgElement.style.pointerEvents = 'auto';
 
@@ -707,12 +709,13 @@ function closeAll() {
     document.getElementById('drawer').classList.remove('open'); 
     document.getElementById('detail-modal').classList.remove('active'); 
     document.getElementById('export-modal').classList.remove('active'); 
+    
     closeIframe(); 
 }
 
 function openDetail(item) {
     // 1. Oprim harta să mai fure atingerile degetului (esențial pentru scroll pe mobil)
-    document.body.style.overflow = 'hidden';
+    document.body.classList.add('modal-open');
     const svgElement = document.querySelector('svg');
     if (svgElement) svgElement.style.pointerEvents = 'none';
 
@@ -794,19 +797,3 @@ function openDetail(item) {
 }
 
 window.onload = loadData;
-// Izolăm fereastra de text pentru ca D3.js să nu mai fure scroll-ul pe mobil
-const detailModal = document.getElementById('detail-modal');
-
-if (detailModal) {
-    detailModal.addEventListener('touchstart', function(e) {
-        e.stopPropagation();
-    }, { passive: true });
-
-    detailModal.addEventListener('touchmove', function(e) {
-        e.stopPropagation();
-    }, { passive: true });
-
-    detailModal.addEventListener('wheel', function(e) {
-        e.stopPropagation();
-    }, { passive: true });
-}
